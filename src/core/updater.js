@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Cập nhật trực tuyến: lấy bản mới nhất từ GitHub Releases (RoutineMiku/apkstart), tải về và thay thế tại chỗ.
+ * Cập nhật trực tuyến: lấy bản mới nhất từ GitHub Releases (MaricoJimmy/apk_running), tải về và thay thế tại chỗ.
  *
  * Phải lo cho cả ba dạng phát hành:
  *   - Bản cài đặt (NSIS): tải `ApkStart-x.y.z-Setup.exe`, cài im lặng (/S);
@@ -22,8 +22,8 @@ const { ZipFile } = require('./zip');
 const { cmpVer } = require('./version');
 const { Sources } = require('./sources');
 
-const OWNER = 'RoutineMiku';
-const REPO = 'apkstart';
+const OWNER = 'MaricoJimmy';
+const REPO = 'apk_running';
 
 /** Chuỗi nháy đơn PowerShell: dấu ' bên trong phải viết thành '' */
 function psq(s) {

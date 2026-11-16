@@ -19,9 +19,9 @@ const http = require('http');
 const { URL } = require('url');
 const { cmpVer } = require('./version');
 
-const OWNER_GH = 'RoutineMiku';
+const OWNER_GH = 'MaricoJimmy';
 const OWNER_GITEE = 'daily-miku';
-const REPO = 'apkstart';
+const REPO = 'apk_running';
 
 const SOURCES = {
   github: {
@@ -286,7 +286,9 @@ class Sources {
 
   async fetchReleases() {
     const prefs = String((this.settings().runtime || {}).sourcePreference || 'auto');
-    const ids = prefs === 'github' || prefs === 'gitee' ? [prefs] : ['github', 'gitee'];
+    // ponytail: bản tiếng Việt chỉ phát hành trên GitHub (MaricoJimmy/apk_running); Gitee daily-miku là repo gốc nên bỏ qua.
+    // Khi có mirror Gitee riêng thì đổi OWNER_GITEE và khôi phục ['github', 'gitee'].
+    const ids = ['github'];
     // API releases của repo công khai đọc ẩn danh được; nếu repo là riêng tư, Gitee sẽ trả 404
     // "Not Found Project" (chứ không phải 401), chỉ khi đó mới cần điền một token chỉ đọc ở đây.
     // Ngoài ra lệnh gọi ẩn danh bị giới hạn tần suất, người dùng quan tâm có thể điền token để tăng hạn mức.
