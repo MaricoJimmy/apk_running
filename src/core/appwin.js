@@ -27,8 +27,10 @@ function iconUrl(p) {
 }
 
 class AppWindow {
-  constructor({ agent, setOrientation, mouseHook = false, pointerConfig = null }) {
+  constructor({ agent, setOrientation, mouseHook = false, pointerConfig = null, keymap = null }) {
     this.agent = agent;
+    // Phiên map phím (keymap-session.js): bật khi cửa sổ ở tiền cảnh, tắt khi blur / đóng / xoay
+    this.keymap = keymap;
     this.setOrientation = setOrientation || null;
     // Hook chuột toàn cục chỉ cài khi "cửa sổ ứng dụng ở tiền cảnh + bật ít nhất một ánh xạ".
     // pointerConfig truyền vào là hàm: đổi công tắc ở trang cài đặt thì lần focus kế tiếp có hiệu lực, không cần khởi động lại.
@@ -159,6 +161,7 @@ class AppWindow {
       const pkg = this.pkg;
       this.pkg = null;
       this._closing = false;
+      this._syncKeymap(false);
       // Các đường đóng không qua close() (Alt+F4, đóng từ thanh tác vụ, tắt máy) cũng phải dừng ứng dụng Android,
       // gỡ cửa sổ trình giả lập ra. Nếu không, cửa sổ biến mất nhưng ứng dụng vẫn chạy nền, người dùng bấm mở lại sẽ vì
       // "đang chạy rồi" mà chuyển thẳng sang, trông như "không đóng được".
@@ -171,11 +174,17 @@ class AppWindow {
     });
     // Chỉ cài hook toàn cục khi "cửa sổ ứng dụng thật sự ở tiền cảnh" và bật ít nhất một ánh xạ chuột;
     // mất focus/đóng thì gỡ ngay, tuyệt không để ApkStart làm chậm chuột của cả hệ thống khi chạy nền.
-    this.win.on('focus', () => this._syncHook(true));
-    this.win.on('blur', () => this._syncHook(false));
+    this.win.on('focus', () => { this._syncHook(true); this._syncKeymap(true); });
+    this.win.on('blur', () => { this._syncHook(false); this._syncKeymap(false); });
 
     if (fullscreen) this.win.maximize();
     return this.win;
+  }
+
+  _syncKeymap(active) {
+    if (!this.keymap) return;
+    if (active && this.pkg) this.keymap.activate(this.pkg).catch(() => {});
+    else this.keymap.deactivate();
   }
 
   _pointerOptions() {
@@ -314,6 +323,7 @@ class AppWindow {
   async rotate(onRestart) {
     if (!this.isOpen) return this.state.landscape;
     const next = !this.state.landscape;
+    this._syncKeymap(false);
     this.setState({ tip: next ? 'Đang chuyển sang màn ngang (khởi động lại môi trường Android, khoảng 30-60 giây)…' : 'Đang chuyển về màn dọc (khởi động lại môi trường Android, khoảng 30-60 giây)…', ready: false });
     if (typeof onRestart === 'function') {
       const ok = await onRestart(next).catch(() => false);
@@ -366,6 +376,7 @@ class AppWindow {
     const win = this.win;
     const pkg = this.pkg;
     this._syncHook(false);
+    this._syncKeymap(false);
     if (!keepApp && pkg && this._onCloseApp) this._onCloseApp(pkg);
     this._selfClose = true;
     this.win = null;

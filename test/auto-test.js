@@ -1859,6 +1859,50 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
         assert(keymap.vkToCode(keymap.codeToVk(c)) === c, c);
       }
     });
+
+    const { EventEmitter } = require('events');
+    const { KeymapSession } = require('../src/core/keymap-session');
+    const mkSession = ({ profile = keymap.defaultTemplate(true), landscape = true } = {}) => {
+      const agent = new EventEmitter();
+      agent.calls = [];
+      agent.setKeymap = async (on, opts) => { agent.calls.push({ on, ...opts }); return { ok: true }; };
+      const sent = []; const notes = [];
+      const fakeStore = { getKeymap: (pkg) => (pkg === 'game.x' ? profile : null) };
+      const s = new KeymapSession({
+        agent, touch: () => ({ send: (t) => sent.push(...t) }), store: fakeStore,
+        screen: async () => ({ w: 1600, h: 900, landscape }),
+        onBack: () => {}, notify: (m) => notes.push(m), settings: () => ({}),
+      });
+      return { s, agent, sent, notes };
+    };
+    await test('KeymapSession: game chưa có bộ phím thì không bật gì', async () => {
+      const { s, agent } = mkSession();
+      assert(await s.activate('khac.y') === false && agent.calls.length === 0);
+    });
+    await test('KeymapSession: kd W -> chạm ngón 1; kmlost -> nhấc mọi ngón; deactivate tắt hook', async () => {
+      const { s, agent, sent } = mkSession();
+      assert(await s.activate('game.x') === true);
+      assert(agent.calls.at(-1).on === true && agent.calls.at(-1).vks.includes(87), 'Phải nuốt W (VK 87)');
+      agent.emit('kd', { ev: 'kd', vk: 87 });
+      assert(sent.some((t) => t.id === 1 && !t.up));
+      agent.emit('kmlost', { ev: 'kmlost' });
+      assert(sent.at(-1).id === 1 && sent.at(-1).up);
+      s.deactivate();
+      assert(agent.calls.at(-1).on === false);
+    });
+    await test('KeymapSession: ` khóa chuột thì báo agent locked, mm xoay camera', async () => {
+      const { s, agent, sent } = mkSession();
+      await s.activate('game.x');
+      agent.emit('kd', { ev: 'kd', vk: 0xC0 });
+      assert(agent.calls.at(-1).locked === true);
+      agent.emit('mm', { ev: 'mm', dx: 5, dy: 0 });
+      assert(sent.some((t) => t.id === 2));
+    });
+    await test('KeymapSession: lệch hướng màn hình thì thông báo và không bật', async () => {
+      const { s, agent, notes } = mkSession({ landscape: false });
+      assert(await s.activate('game.x') === false);
+      assert(notes.length === 1 && agent.calls.length === 0);
+    });
   }
 
   console.log(results.join('\n'));

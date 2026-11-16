@@ -33,6 +33,7 @@ const display = require('./core/display');
 const { WinAgent } = require('./core/agent');
 const pointer = require('./core/pointer');
 const { AppWindow, TITLEBAR_H } = require('./core/appwin');
+const { KeymapSession } = require('./core/keymap-session');
 const { NotifyBridge } = require('./core/notify');
 const { AndroidSettings } = require('./core/android');
 const { Updater } = require('./core/updater');
@@ -270,6 +271,9 @@ function screenRect() {
 
 let currentAppPkg = null;
 let wheelRouter = null;
+// Map phím: phiên theo cửa sổ game + kênh chạm đa điểm (tạo khi runtime sẵn sàng, xem touch.js)
+let keymapSession = null;
+let keymapTouch = null;
 const deviceSize = { value: null };
 
 /** Chèn sự kiện con lăn cần biết độ phân giải phía Android; cache một lần, mất hiệu lực sau khi xoay màn hình/khởi động lại môi trường chạy */
@@ -1725,8 +1729,21 @@ if (!gotLock) {
 
     // Tác tử cửa sổ: chỉ lo nhúng cửa sổ trình giả lập. Hook chuột toàn cục chỉ cài theo cấu hình khi cửa sổ ứng dụng ở tiền cảnh.
     winAgent = new WinAgent();
+    keymapSession = new KeymapSession({
+      agent: winAgent,
+      touch: () => keymapTouch,
+      store,
+      screen: async () => {
+        const d = await getDeviceSize();
+        return { w: d.width, h: d.height, landscape: !!displaySettings().landscape };
+      },
+      onBack: () => { runtime.client().keyBack().catch(() => {}); },
+      notify: (m) => notify('Map phím', m),
+      settings: () => store.getSettings(),
+    });
     appWin = new AppWindow({
       agent: winAgent,
+      keymap: keymapSession,
       // Xoay cần đổi độ phân giải logic của Android, giao cho client adb làm
       setOrientation: async (landscape) => {
         deviceSize.value = null;
@@ -1772,6 +1789,7 @@ if (!gotLock) {
         const next = new WinAgent();
         winAgent = next;
         appWin.agent = next;
+        if (keymapSession) keymapSession.setAgent(next);
         attachAgentEvents(next);
         // Tác tử mới không có thông tin phạm vi, không bổ sung thì nó không dám đụng cửa sổ nào
         armAgent(next).catch(() => {});
