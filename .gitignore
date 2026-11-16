@@ -27,3 +27,5 @@ engine/*.img
 engine/*.qcow2
 tools/platform-tools/adb.exe
 tools/platform-tools/*.dll
+
+.superpowers/
