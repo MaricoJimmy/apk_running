@@ -12,6 +12,7 @@ const ICON_DIR = path.join(DATA_DIR, 'icons');
 const APK_DIR = path.join(DATA_DIR, 'apks');
 const APPS_FILE = path.join(DATA_DIR, 'apps.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+const KEYMAPS_FILE = path.join(DATA_DIR, 'keymaps.json');
 
 const DEFAULT_SETTINGS = {
   adbPath: '',
@@ -233,6 +234,20 @@ const store = {
 
   getApp(pkg) {
     return this.getApps().find((a) => a.package === pkg) || null;
+  },
+
+  /** Bộ phím (map phím) của một game, theo tên gói; chưa có thì null */
+  getKeymap(pkg) {
+    const all = readJson(KEYMAPS_FILE, {});
+    return (all && all[pkg]) || null;
+  },
+
+  /** Lưu bộ phím của một game; profile = null để xóa */
+  saveKeymap(pkg, profile) {
+    const all = readJson(KEYMAPS_FILE, {}) || {};
+    if (profile) all[pkg] = profile;
+    else delete all[pkg];
+    writeJson(KEYMAPS_FILE, all);
   },
 
   iconPath(pkg) {

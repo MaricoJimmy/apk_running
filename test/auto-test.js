@@ -1834,6 +1834,15 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
       assert(out.filter((t) => t.up).map((t) => t.id).sort().join() === '1,2');
       assert(e.state === 'unlocked' && lock.at(-1) === false);
     });
+    await test('store lưu / đọc / xóa bộ phím theo tên gói', () => {
+      const store = require('../src/core/store');
+      const p = keymap.defaultTemplate(true);
+      store.saveKeymap('a.b', p);
+      assert(JSON.stringify(store.getKeymap('a.b')) === JSON.stringify(p), 'Đọc lại phải bằng bản đã lưu');
+      assert(store.getKeymap('x.y') === null);
+      store.saveKeymap('a.b', null);
+      assert(store.getKeymap('a.b') === null, 'null = xóa');
+    });
     await test('vkToCode / codeToVk khứ hồi cho các phím mẫu', () => {
       for (const c of ['KeyW', 'Space', 'Tab', 'Escape', 'Backquote', 'F12', 'Digit1']) {
         assert(keymap.vkToCode(keymap.codeToVk(c)) === c, c);
