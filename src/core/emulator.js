@@ -515,6 +515,8 @@ class EmulatorEngine {
       '-gpu', gpu,
       '-memory', String(memoryMB),
       '-cores', String(cores),
+      // gRPC của emulator: kênh gửi chạm đa điểm độ trễ thấp cho map phím (touch.js). Cổng = console + 3000 (5554 -> 8554).
+      '-grpc', String(port + 3000),
     ];
     // Mạng: emulator AOSP mặc định dùng NAT chế độ người dùng của QEMU (-netdev user), phía Android nhận
     // địa chỉ ảo 10.0.2.x, lối ra dùng lại card mạng vật lý của máy chủ qua NAT.
@@ -962,6 +964,7 @@ class EmulatorEngine {
       const port = i === 0 ? startPort : await doctor.freePortPair(startPort + (i * 2));
       const plan = { ...base, port, adbPort, lcd: screen };
       this.port = port;
+      this.grpcPort = port + 3000;
       // Mỗi vòng đặt lại mã thoát: 0xC0000005 của vòng trước không được mang vào chẩn đoán vòng sau
       this.lastExitCode = null;
       // Log cũng chia theo vòng: log trong bộ nhớ cộng dồn qua các vòng, nếu dòng crash của vòng 1 còn ở cuối,
