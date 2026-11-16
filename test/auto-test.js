@@ -1772,6 +1772,75 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     assert(parseResolvedActivity('com.other', out) === '', 'Không được dùng tên gói khác');
   });
 
+  console.log('\n[keymap.js map phím]');
+  {
+    const keymap = require('../src/core/keymap');
+    const KEYS = { up: 'KeyW', left: 'KeyA', down: 'KeyS', right: 'KeyD' };
+    const mk = () => {
+      const out = []; const lock = []; let back = 0;
+      const e = new keymap.KeymapEngine({
+        profile: keymap.defaultTemplate(true), screen: { w: 1600, h: 900 },
+        emit: (t) => out.push(...t), onLock: (l) => lock.push(l), onBack: () => { back += 1; },
+      });
+      return { e, out, lock, back: () => back };
+    };
+
+    await test('Joystick: W+D chéo chuẩn hóa, W+S triệt tiêu', () => {
+      const v = keymap.joystickVector(new Set(['KeyW', 'KeyD']), KEYS);
+      assert(Math.abs(Math.hypot(v.x, v.y) - 1) < 1e-9 && v.x > 0 && v.y < 0);
+      const z = keymap.joystickVector(new Set(['KeyW', 'KeyS']), KEYS);
+      assert(z.x === 0 && z.y === 0);
+    });
+    await test('Giữ W: ngón 1 down ở tâm joystick rồi move lên trên; nhả W thì up', () => {
+      const { e, out } = mk();
+      assert(e.keyDown('KeyW') === true);
+      assert(out[0].id === 1 && !out[0].up && Math.round(out[0].x) === Math.round(0.14 * 1600));
+      assert(out.at(-1).y < out[0].y);
+      e.keyUp('KeyW'); assert(out.at(-1).id === 1 && out.at(-1).up);
+    });
+    await test('Mở game chưa khóa; ` khóa; chuột di chuyển chỉ xoay camera khi khóa', () => {
+      const { e, out, lock } = mk();
+      e.mouseMove(10, 0); assert(out.length === 0 && e.state === 'unlocked');
+      e.keyDown('Backquote'); assert(e.state === 'locked' && lock.at(-1) === true);
+      e.mouseMove(10, 0); assert(out.some((t) => t.id === 2));
+    });
+    await test('Camera chạm mép thì nhấc lên và đặt lại ở tâm vùng', () => {
+      const { e, out } = mk(); e.keyDown('Backquote');
+      for (let i = 0; i < 200; i += 1) e.mouseMove(20, 0);
+      assert(out.filter((t) => t.id === 2 && t.up).length >= 1);
+      assert(out.every((t) => t.id !== 2 || t.x <= (0.70 + 0.28) * 1600 + 1));
+    });
+    await test('Esc: gửi Back + nhả chuột; Esc lần 2: Back + khóa lại', () => {
+      const { e, back } = mk(); e.keyDown('Backquote');
+      e.keyDown('Escape'); assert(e.state === 'unlocked' && back() === 1);
+      e.keyDown('Escape'); assert(e.state === 'locked' && back() === 2);
+    });
+    await test('Tab (releaseMouse) đảo khóa, khi nhả chuột WASD vẫn chạy, Mouse1 không bắn', () => {
+      const { e, out } = mk(); e.keyDown('Backquote'); e.keyDown('Tab'); e.keyUp('Tab');
+      assert(e.state === 'unlocked');
+      assert(e.mouseButton('Mouse1', true) === false);
+      assert(e.keyDown('KeyW') === true && out.some((t) => t.id === 1));
+    });
+    await test('F12 tắt hẳn: nhấc mọi ngón, chỉ còn F12 bị nuốt; nhả phím đã giữ không gửi up lạc', () => {
+      const { e, out } = mk(); e.keyDown('KeyD');
+      e.keyDown('F12'); assert(e.state === 'disabled' && out.at(-1).id === 1 && out.at(-1).up);
+      const n = out.length; assert(e.keyUp('KeyD') === false && out.length === n);
+      assert(JSON.stringify(e.swallowCodes()) === '["F12"]');
+      e.keyDown('F12'); assert(e.state === 'unlocked');
+    });
+    await test('reset() khi đang giữ W + khóa: nhấc hết ngón và nhả chuột', () => {
+      const { e, out, lock } = mk(); e.keyDown('Backquote'); e.keyDown('KeyW'); e.mouseMove(5, 5);
+      e.reset();
+      assert(out.filter((t) => t.up).map((t) => t.id).sort().join() === '1,2');
+      assert(e.state === 'unlocked' && lock.at(-1) === false);
+    });
+    await test('vkToCode / codeToVk khứ hồi cho các phím mẫu', () => {
+      for (const c of ['KeyW', 'Space', 'Tab', 'Escape', 'Backquote', 'F12', 'Digit1']) {
+        assert(keymap.vkToCode(keymap.codeToVk(c)) === c, c);
+      }
+    });
+  }
+
   console.log(results.join('\n'));
   console.log(`\nKết quả: ${passed} đạt, ${failed} lỗi\n`);
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (_) { /* ignore */ }
