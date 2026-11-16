@@ -10,6 +10,8 @@ const { BrowserWindow, screen, nativeImage } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { hookOptions } = require('./pointer');
+const { KeymapOverlay } = require('./overlay');
+const { defaultTemplate } = require('./keymap');
 const store = require('./store');
 
 const TITLEBAR_H = 38;
@@ -153,7 +155,9 @@ class AppWindow {
       this.agent.show().catch(() => {});
       this.scheduleFit(6);
     });
-    this.win.on('minimize', () => { this.agent.hide().catch(() => {}); });
+    this.win.on('minimize', () => { this.agent.hide().catch(() => {}); if (this.overlay) this.overlay.hide(); });
+    // Lớp phủ map phím phải bám theo vùng hình khi di chuyển / đổi cỡ / phóng to
+    for (const ev of ['move', 'resize', 'maximize', 'unmaximize', 'restore']) this.win.on(ev, () => this.refreshOverlay());
     this.win.on('close', () => { this._closing = true; });
     this.win.on('closed', () => {
       if (this._selfClose) return;   // close() tự dọn dẹp sau khi park xong
@@ -162,6 +166,7 @@ class AppWindow {
       this.pkg = null;
       this._closing = false;
       this._syncKeymap(false);
+      this.overlay = null;   // cửa sổ con bị hủy cùng cửa sổ chủ
       // Các đường đóng không qua close() (Alt+F4, đóng từ thanh tác vụ, tắt máy) cũng phải dừng ứng dụng Android,
       // gỡ cửa sổ trình giả lập ra. Nếu không, cửa sổ biến mất nhưng ứng dụng vẫn chạy nền, người dùng bấm mở lại sẽ vì
       // "đang chạy rồi" mà chuyển thẳng sang, trông như "không đóng được".
@@ -179,6 +184,57 @@ class AppWindow {
 
     if (fullscreen) this.win.maximize();
     return this.win;
+  }
+
+  /** Vùng hình LCD trên màn hình (DIP): vùng client trừ thanh tiêu đề */
+  lcdRect() {
+    const b = this.win.getContentBounds();
+    return { x: b.x, y: b.y + TITLEBAR_H, width: b.width, height: b.height - TITLEBAR_H };
+  }
+
+  _overlayPayload() {
+    const engine = store.getSettings().engine || {};
+    const landscape = !!this.state.landscape;
+    return {
+      profile: this.pkg ? store.getKeymap(this.pkg) : null,
+      template: defaultTemplate(landscape),
+      labels: engine.keymapLabels !== false,
+      disableKey: engine.keymapDisableKey || 'F12',
+      landscape,
+    };
+  }
+
+  _ensureOverlay() {
+    if (!this.overlay || !this.overlay.win || this.overlay.win.isDestroyed()) this.overlay = new KeymapOverlay({ parent: this.win });
+    return this.overlay;
+  }
+
+  /** Đồng bộ lớp phủ: đang chỉnh thì chỉ bám vị trí; không thì hiện nhãn phím (nếu game có bộ phím và bật nhãn) */
+  refreshOverlay() {
+    if (!this.isOpen || this.win.isMinimized()) return;
+    if (this.overlay && this.overlay.isEditing) { this.overlay.setBounds(this.lcdRect()); return; }
+    const p = this._overlayPayload();
+    const want = !!(p.profile && p.labels && this.state.ready && !!p.profile.landscape === p.landscape);
+    if (!want) { if (this.overlay) this.overlay.hide(); return; }
+    const ov = this._ensureOverlay();
+    ov.setBounds(this.lcdRect());
+    ov.show('play', p);
+  }
+
+  openKeymapEditor() {
+    if (!this.isOpen) return false;
+    const ov = this._ensureOverlay();
+    ov.setBounds(this.lcdRect());
+    ov.show('edit', this._overlayPayload());
+    return true;
+  }
+
+  closeKeymapEditor() {
+    if (this.overlay) this.overlay.hide();
+    if (!this.isOpen) return;
+    this.refreshOverlay();
+    // Trả focus cho cửa sổ game: sự kiện focus sẽ bật lại map phím với bộ phím vừa lưu
+    this.win.focus();
   }
 
   _syncKeymap(active) {
@@ -220,6 +276,7 @@ class AppWindow {
   setState(patch) {
     this.state = { ...this.state, ...patch };
     this._push();
+    if (patch && 'ready' in patch) this.refreshOverlay();
   }
 
   _push() {

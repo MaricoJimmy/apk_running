@@ -1,0 +1,84 @@
+/* Lớp phủ map phím: nền trong suốt; chế độ chỉnh thì làm tối game và hiện thanh công cụ */
+:root {
+  --accent: #ffd54a;
+  --cam: #7fd3ff;
+  --bar: rgba(20, 22, 28, 0.94);
+  --chip: #2c313c;
+  --text: #e8e8e8;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: transparent;
+  font: 12px "Segoe UI", system-ui, sans-serif; color: var(--text);
+  user-select: none;
+}
+body.edit { background: rgba(0, 0, 0, 0.45); }
+
+.toolbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 38px; z-index: 5;
+  display: none; align-items: center; gap: 6px; padding: 0 8px;
+  background: var(--bar); flex-wrap: nowrap; overflow-x: auto;
+}
+body.edit .toolbar { display: flex; }
+.toolbar .grow { flex: 1; }
+button {
+  background: var(--chip); color: var(--text); border: 1px solid #3a404c; border-radius: 5px;
+  padding: 4px 9px; font: inherit; cursor: pointer; white-space: nowrap;
+}
+button:hover { border-color: #5a6273; }
+button.primary { background: #2f7d4f; border-color: #3c9a63; color: #fff; }
+.field { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.keycap { min-width: 34px; font-weight: 600; }
+.keycap.listening { border-color: var(--accent); color: var(--accent); }
+
+.stage { position: absolute; inset: 0; }
+body.edit .stage { top: 0; }
+
+.ctl {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 600; pointer-events: none;
+}
+body.edit .ctl { pointer-events: auto; cursor: move; }
+.ctl.key {
+  min-width: 30px; height: 30px; padding: 0 6px; border-radius: 15px;
+  background: rgba(255, 255, 255, 0.16); border: 2px solid var(--accent);
+}
+.ctl.key small {
+  position: absolute; top: 31px; white-space: nowrap; font-weight: 400; font-size: 10px; opacity: 0.85;
+}
+.ctl.joystick { border-radius: 50%; border: 2px dashed var(--accent); background: rgba(255, 255, 255, 0.06); }
+.ctl.joystick span { position: absolute; }
+.ctl.camera {
+  transform: none; border: 2px dashed var(--cam); border-radius: 8px; color: var(--cam);
+  align-items: flex-start; justify-content: flex-start; padding: 6px; font-size: 11px;
+}
+.ctl.camera .resize {
+  position: absolute; right: -6px; bottom: -6px; width: 14px; height: 14px;
+  background: var(--cam); border-radius: 3px; cursor: nwse-resize;
+}
+.ctl.selected { box-shadow: 0 0 0 3px rgba(255, 213, 74, 0.55); }
+
+/* Chế độ chơi: chỉ nhãn mờ, không viền vùng camera */
+body.play .ctl { opacity: 0.45; }
+body.play .ctl.camera { display: none; }
+body.play.nolabels .ctl { display: none; }
+
+.panel {
+  position: absolute; right: 10px; top: 48px; z-index: 6; width: 300px;
+  background: var(--bar); border: 1px solid #3a404c; border-radius: 8px; padding: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.panel[hidden] { display: none; }
+.panel .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.panel .row > span { min-width: 34px; opacity: 0.8; }
+.panel input:not([type]) {
+  flex: 1; background: #151820; border: 1px solid #3a404c; border-radius: 4px; color: var(--text); padding: 4px 6px;
+}
+.panel .hint { opacity: 0.6; font-size: 11px; }
+.help {
+  position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 5;
+  display: none; background: var(--bar); padding: 4px 10px; border-radius: 12px; font-size: 11px; white-space: nowrap;
+}
+body.edit .help { display: block; }

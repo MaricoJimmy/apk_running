@@ -1602,6 +1602,16 @@ function registerIpc() {
     return { ok: false };
   });
   ipcMain.handle('shell:rotate', () => appWin.rotate(restartForOrientation));
+  // Map phím: mở trình chỉnh trên game / lưu / hủy
+  ipcMain.handle('shell:keymapEdit', () => appWin.openKeymapEditor());
+  ipcMain.handle('keymap:save', (_e, data) => {
+    const { profile, disableKey, labels } = data || {};
+    if (appWin.pkg && profile && Array.isArray(profile.controls)) store.saveKeymap(appWin.pkg, profile);
+    store.saveSettings({ engine: { keymapDisableKey: String(disableKey || 'F12'), keymapLabels: labels !== false } });
+    appWin.closeKeymapEditor();
+    return true;
+  });
+  ipcMain.handle('keymap:cancel', () => appWin.closeKeymapEditor());
   ipcMain.handle('shell:back', async () => { await runtime.client().keyBack(); });
   ipcMain.handle('shell:forward', async () => { await runtime.client().keyForward(); });
 

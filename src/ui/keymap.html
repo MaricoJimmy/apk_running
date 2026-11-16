@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+<title>Map phím</title>
+<link rel="stylesheet" href="keymap.css" />
+</head>
+<body>
+<div class="toolbar" id="toolbar">
+  <button data-add="key">+ Phím</button>
+  <button data-add="joystick">+ Joystick</button>
+  <button data-add="camera">+ Vùng camera</button>
+  <button data-add="fire">+ Nút bắn (chuột trái)</button>
+  <button id="btnTemplate" title="Thay toàn bộ bằng bố cục mẫu kiểu PUBG Mobile">Bố cục mẫu PUBG</button>
+  <span class="grow"></span>
+  <label class="field" title="Độ nhạy xoay camera khi khóa chuột">Độ nhạy chuột
+    <input type="range" id="sens" min="0.2" max="3" step="0.1" />
+    <b id="sensVal"></b>
+  </label>
+  <label class="field" title="Bấm vào rồi nhấn phím muốn dùng để tắt/bật toàn bộ map phím">Phím tắt map phím
+    <button id="disableKey" class="keycap"></button>
+  </label>
+  <label class="field"><input type="checkbox" id="labels" /> Hiện nhãn phím</label>
+  <button id="btnCancel">Hủy</button>
+  <button id="btnSave" class="primary">Lưu</button>
+</div>
+
+<div class="stage" id="stage"></div>
+
+<div class="panel" id="panel" hidden>
+  <div class="row"><span>Phím</span><button id="pKey" class="keycap"></button></div>
+  <div class="row"><span>Hoặc</span>
+    <button id="pMouse1">Chuột trái</button><button id="pMouse2">Chuột phải</button>
+  </div>
+  <div class="row"><span>Tên</span><input id="pLabel" maxlength="16" /></div>
+  <label class="row"><input type="checkbox" id="pRelease" /> Nhả chuột khi bật (bấm lần nữa để khóa lại)</label>
+  <div class="row joy"><span>Lên</span><button class="keycap" data-dir="up"></button>
+    <span>Trái</span><button class="keycap" data-dir="left"></button>
+    <span>Xuống</span><button class="keycap" data-dir="down"></button>
+    <span>Phải</span><button class="keycap" data-dir="right"></button></div>
+  <div class="hint">Kéo để di chuyển · lăn chuột trên joystick để đổi cỡ · chuột phải để xóa</div>
+</div>
+
+<div class="help" id="help">Chọn một ô rồi nhấn phím để gán · <b>`</b> khóa/nhả chuột · <b>Esc</b> mở menu game · F12 tắt map phím</div>
+
+<script src="keymap.js"></script>
+</body>
+</html>

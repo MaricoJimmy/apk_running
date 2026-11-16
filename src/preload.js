@@ -101,12 +101,24 @@ contextBridge.exposeInMainWorld('apkstart', {
     maximize: () => invoke('shell:maximize'),
     close: () => invoke('shell:close'),
     rotate: () => invoke('shell:rotate'),
+    keymapEdit: () => invoke('shell:keymapEdit'),
     back: () => invoke('shell:back'),
     forward: () => invoke('shell:forward'),
     onState: (cb) => {
       const handler = (_e, payload) => cb(payload);
       ipcRenderer.on('shell:state', handler);
       return () => ipcRenderer.removeListener('shell:state', handler);
+    },
+  },
+
+  // Lớp phủ map phím (src/ui/keymap.html): trình chỉnh kéo-thả + nhãn phím khi chơi
+  keymap: {
+    save: (data) => invoke('keymap:save', data),
+    cancel: () => invoke('keymap:cancel'),
+    onMode: (cb) => {
+      const handler = (_e, payload) => cb(payload);
+      ipcRenderer.on('keymap:mode', handler);
+      return () => ipcRenderer.removeListener('keymap:mode', handler);
     },
   },
 

@@ -4,12 +4,14 @@ const api = window.apkstart;
 const $ = (id) => document.getElementById(id);
 
 const btn = {
+  keymap: $('btnKeymap'),
   rotate: $('btnRotate'),
   min: $('btnMin'),
   max: $('btnMax'),
   close: $('btnClose'),
 };
 
+btn.keymap.addEventListener('click', () => api.shell.keymapEdit());
 btn.rotate.addEventListener('click', () => api.shell.rotate());
 btn.min.addEventListener('click', () => api.shell.minimize());
 btn.max.addEventListener('click', () => api.shell.maximize());

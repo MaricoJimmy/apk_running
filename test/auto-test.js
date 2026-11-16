@@ -1860,6 +1860,39 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
       }
     });
 
+    await test('Emulator bật gRPC ở cổng console + 3000 (kênh chạm đa điểm cho map phím)', () => {
+      const { EmulatorEngine } = require('../src/core/emulator');
+      const emu = new EmulatorEngine(path.join(__dirname, '..'));
+      const a = emu.buildArgs({ port: 5556, gpu: 'software' }).join(' ');
+      assert(/-grpc 8556\b/.test(a), a);
+    });
+    await test('TouchChannel nạp được proto và có send/connect/close', () => {
+      const { TouchChannel } = require('../src/core/touch');
+      const ch = new TouchChannel({ port: 1 });
+      assert(typeof ch.connect === 'function' && typeof ch.send === 'function' && typeof ch.close === 'function');
+      assert(ch.toTouchEvent([{ id: 3, x: 10.6, y: 20.2, up: true }]).touches[0].pressure === 0);
+      assert(ch.toTouchEvent([{ id: 3, x: 10.6, y: 20.2 }]).touches[0].x === 11);
+      ch.close();
+    });
+
+    await test('Trình chỉnh map phím: quy đổi tỉ lệ <-> pixel khứ hồi đúng', () => {
+      const ui = require('../src/ui/keymap.js');
+      const box = { width: 1280, height: 720 };
+      const p = ui.toPx({ x: 0.25, y: 0.5 }, box);
+      assert(p.x === 320 && p.y === 360);
+      const f = ui.fromPx(320, 360, box);
+      assert(f.x === 0.25 && f.y === 0.5);
+      const c = ui.fromPx(-50, 9999, box);
+      assert(c.x === 0 && c.y === 1, 'Kéo ra ngoài phải kẹp về 0..1');
+    });
+    await test('Có nút map phím trên thanh tiêu đề + API preload + lớp phủ', () => {
+      const shellHtml = fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'shell.html'), 'utf8');
+      assert(shellHtml.includes('id="btnKeymap"'));
+      const pre = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
+      assert(pre.includes('keymapEdit') && pre.includes("keymap:save"));
+      assert(typeof require('../src/core/overlay').KeymapOverlay === 'function');
+    });
+
     const { EventEmitter } = require('events');
     const { KeymapSession } = require('../src/core/keymap-session');
     const mkSession = ({ profile = keymap.defaultTemplate(true), landscape = true } = {}) => {
