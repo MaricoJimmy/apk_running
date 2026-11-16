@@ -1,0 +1,19 @@
+Trước đây muốn mở một app Android trên máy tính phiền cỡ nào: tải trình giả lập nặng vài GB, cài môi trường, tìm APK, kéo vào, cuối cùng còn có thể bật ra câu "Kiến trúc CPU không khớp, không cài được".
+
+Thế là tự viết luôn một cái: ApkStart 👇
+
+✅ Nhấp đúp .apk là cài, tự tạo lối tắt trên desktop
+✅ Mỗi app một cửa sổ riêng, không làm phiền nhau
+✅ Máy tính và Android dùng chung thư mục, kéo file vào là dùng được
+✅ Engine chính thức của Google + tăng tốc phần cứng AEHD, lớp vỏ không phụ thuộc gì thêm
+
+Bản v0.2.2 lần này còn làm được hai việc "căng":
+🔥 Bản đầy đủ tích hợp sẵn engine + image tương thích ARM Android 14, giải nén, nhấp đúp là vào thẳng giao diện chính, không tải gì, không cần cài đặt
+🔥 Các app hệ ByteDance vốn chắc chắn crash trên image cũ (đã test thực tế với Hongguo Short Drama), sau khi đổi sang lớp dịch mới: cài đặt → luồng đề xuất → phát video, chạy trơn tru không crash
+
+Hai phiên bản tùy chọn: bản nhẹ 0.11GB (lần đầu chạy triển khai một chạm) / bản đầy đủ 1.35GB (mở ra là dùng)
+Lên GitHub tìm RoutineMiku/apkstart, bấm Releases để tải, dự án mã nguồn mở hoàn toàn, có thể tự biên dịch 👀
+
+Có thắc mắc gì cứ hỏi mình ở phần bình luận, hoặc tìm mình trên WeChat Official Account / Douyin @日常MIKU nhé～
+
+#trinhgialapandroid #manguonmo #meoWindows #congcuhieusuat #nhatkylaptrinhvien #ApkStart #tuongthichARM #laptrinhdoclap

@@ -1,0 +1,211 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build bản portable và phát hành
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Cài đặt phụ thuộc (gồm runtime Electron)
+        run: npm ci
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+
+      - name: Kiểm thử
+        run: npm test
+
+      - name: Đóng gói bản portable
+        run: npm run pack
+
+      # Dùng 7-Zip thay vì Compress-Archive: cùng một thư mục, deflate của .NET nén ra 105MB,
+      # còn 7-Zip -mx=9 chỉ 99.6MB — chênh 5MB này quyết định trên Gitee là "một tệp zip giải nén
+      # trực tiếp được" hay "hai part phải ghép thủ công". build/zip.js còn có chốt chặn dung lượng:
+      # vượt 100MiB thì cho job thất bại luôn, tránh sau này lại lặng lẽ quay về gói chia mảnh.
+      - name: Nén sản phẩm (7-Zip, chốt dung lượng 100MiB)
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag.StartsWith('v')) { $tag = "v$tag" }
+          node build/zip.js dist/ApkStart-win64-portable "ApkStart-$tag-win64-portable.zip" --limit-mb 100
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-Item "ApkStart-$tag-win64-portable.zip" | Select-Object Name, Length
+
+      # Tạo Release và tải lên bản portable nhẹ (lớp vỏ rất nhỏ, runtime tải theo nhu cầu khi khởi động lần đầu)
+      - name: Tạo Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag.StartsWith('v')) { $tag = "v$tag" }
+          $zip = "ApkStart-$tag-win64-portable.zip"
+          # Idempotent: release đã tồn tại (chạy lại / đẩy lại tag) thì bỏ qua create, chỉ tải lên tài sản
+          $existing = gh release view $tag --json tagName -q .tagName 2>$null
+          # Có ghi chú phát hành viết tay (.github/release-notes-<tag>.md) thì dùng nó, hữu ích hơn nhiều
+          # so với "Full Changelog" của --generate-notes; không có mới quay về tự động tạo.
+          $notes = ".github/release-notes-$tag.md"
+          if (-not $existing) {
+            if (Test-Path $notes) {
+              gh release create $tag --title "ApkStart $tag" --notes-file $notes
+            } else {
+              gh release create $tag --title "ApkStart $tag" --generate-notes
+            }
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          $ok = $false
+          for ($i = 1; $i -le 3 -and -not $ok; $i++) {
+            gh release upload $tag $zip --clobber
+            if ($LASTEXITCODE -eq 0) { $ok = $true } else { Start-Sleep -Seconds 15 }
+          }
+          if (-not $ok) { Write-Error "Tải lên thất bại: $zip"; exit 1 }
+          gh release view $tag --json assets --jq '.assets[].name'
+
+      # Đồng bộ lên Gitee: từ Trung Quốc kết nối thẳng GitHub chỉ vài chục KB/s, Gitee thường đạt vài MB/s.
+      # Gói portable sau khi nén chặt khoảng 99.6MB, nằm trong giới hạn mỗi tệp của Gitee (100MB), nên đặt luôn một gói trọn,
+      # người dùng mở ra là giải nén được; chỉ khi vượt giới hạn publish-gitee.js mới quay về chia mảnh .part1/.part2.
+      # Setup (1.4GB) và gói runtime trọn (1.4GB) vượt giới hạn quá nhiều, chỉ để trên GitHub —
+      # phía ứng dụng lấy hợp của "nguồn nào có tài sản", nên không ảnh hưởng cập nhật.
+      # Đồng bộ Gitee khi "thiếu token / mất mạng" chỉ cảnh báo, không chặn: nếu không cả job build sẽ đỏ,
+      # job full bên dưới (needs: build) bị bỏ qua toàn bộ, đến Setup / gói runtime trên chính GitHub cũng không phát hành được.
+      # Thiếu token thì bước này vẫn được đánh dấu đỏ trong log (continue-on-error là "thấy được nhưng không chí mạng"), không im lặng.
+      - name: Đồng bộ bản portable lên Gitee
+        continue-on-error: true
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        shell: pwsh
+        run: |
+          # Trước đây chỗ này "không cấu hình token thì lặng lẽ bỏ qua, bước này vẫn hiện thành công" —
+          # v0.3.4 đã lặng lẽ thiếu mất một phiên bản trên Gitee như vậy, mãi sau mới phát hiện.
+          # Nay thiếu token thì cho bước này thất bại luôn, thà đỏ một lần còn hơn im hơi lặng tiếng.
+          if (-not $env:GITEE_TOKEN) {
+            Write-Error "Thiếu GITEE_TOKEN: phiên bản này sẽ không có gói cài đặt trên Gitee. Hãy thêm GITEE_TOKEN tại Settings → Secrets and variables → Actions (chỉ cần chọn thêm quyền releases ngoài projects + pull_requests)."
+            exit 1
+          }
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag.StartsWith('v')) { $tag = "v$tag" }
+          # Ghi chú phát hành dùng chung một bản với GitHub, đừng để bên Gitee chỉ còn mỗi một câu "gói cài đặt bản portable"
+          $notes = ".github/release-notes-$tag.md"
+          if (Test-Path $notes) {
+            node tools/publish-gitee.js $tag --zip "ApkStart-$tag-win64-portable.zip" --notes $notes
+          } else {
+            node tools/publish-gitee.js $tag --zip "ApkStart-$tag-win64-portable.zip"
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  full:
+    name: Build bản đầy đủ (tích hợp runtime, dùng ngay ngoại tuyến)
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Cài đặt phụ thuộc
+        run: npm ci
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+
+      # Lắp ráp runtime từ nguồn chính thức của Google (emulator + platform-tools + aehd + ảnh Play x86_64).
+      # Xuất ra engine/, cùng cấu trúc thư mục với khi phát triển cục bộ.
+      - name: Lắp ráp runtime
+        run: node build/fetch-runtime.js engine
+
+      # prepare-runtime sẽ nén system.img/vendor.img thành xz (LZMA2).
+      # CI runner chỉ có 2 nhân: XZ_PRESET=6 giảm thời gian nén từ ~2h xuống ~40min (dung lượng +3%).
+      # XZ_TIMEOUT_MS là watchdog: quá thời gian thì tự kill và dùng gzip dự phòng,
+      # tuyệt đối không lặp lại cảnh "stdin không nhận EOF → xuất 0 byte → treo 3 tiếng".
+      - name: Chuẩn bị runtime (nén xz, hạ mức nén để CI nhanh hơn)
+        run: node build/prepare-runtime.js --force
+        env:
+          XZ_PRESET: '6'
+          XZ_TIMEOUT_MS: '3600000'
+
+      # Tích hợp thư viện runtime Microsoft VC++ 2015-2022 x64: trình giả lập Android (Qt6) và qemu đều phụ thuộc vào nó,
+      # thiếu thì trên "máy khác" sẽ không khởi động được (0xc0000135 / thiếu MSVCP140).
+      # Đặt trong build/runtime, đóng vào gói cài đặt cùng extraResources; ngoại tuyến cũng cài một chạm được.
+      - name: Tải thư viện runtime VC++ (tích hợp ngoại tuyến)
+        shell: pwsh
+        run: |
+          $dir = "build\runtime"
+          if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+          $out = "$dir\vc_redist.x64.exe"
+          Write-Output "Đang tải thư viện runtime VC++ 2015-2022 x64…"
+          curl.exe -L -o $out "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+          if (-not (Test-Path $out) -or (Get-Item $out).Length -lt 1MB) { Write-Error "Tải vc_redist thất bại" }
+          Get-Item $out | Select-Object Name, Length
+
+      # Khi không gắn git tag, electron-builder không ngầm phát hành; có tag thì vì job này không có
+      # GH_TOKEN nên sẽ báo "GitHub Personal Access Token is not set" rồi thoát với mã 1 (nguyên nhân gốc khiến bản đầy đủ trước đây luôn thất bại).
+      # Ở đây chỉ định rõ --publish never, gói cài đặt do bước "Tải bản đầy đủ lên Release" phía sau tải lên bằng gh release upload.
+      - name: Build gói cài đặt bản đầy đủ
+        run: npx electron-builder --win nsis --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Tải bản đầy đủ lên Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag.StartsWith('v')) { $tag = "v$tag" }
+          $setup = Get-ChildItem dist/release/*Setup.exe | Select-Object -First 1
+          if (-not $setup) { Write-Error "Không tìm thấy Setup.exe"; exit 1 }
+          Write-Output ("Đang tải lên {0} ({1:N0} MB)" -f $setup.Name, ($setup.Length / 1MB))
+          $ok = $false
+          for ($i = 1; $i -le 3 -and -not $ok; $i++) {
+            gh release upload $tag $setup.FullName --clobber
+            if ($LASTEXITCODE -eq 0) { $ok = $true } else { Start-Sleep -Seconds 20 }
+          }
+          if (-not $ok) { Write-Error "Tải lên thất bại: $($setup.Name)"; exit 1 }
+          gh release view $tag --json assets --jq '.assets[] | "\(.name) \(.size)"'
+
+      # Bản nhẹ (không kèm runtime) không còn tải lẻ từng emulator / ảnh hệ thống từ dl.google.com,
+      # mà tải thẳng một gói trọn này — nguồn tải giống "Cập nhật phần mềm", đều là GitHub Release của dự án,
+      # độ ổn định mạng ở Trung Quốc và việc xử lý sự cố đều chỉ tập trung ở một chỗ.
+      # Nội dung đã là ảnh nén .xz, nên ở đây dùng bsdtar đóng thẳng thành zip (không nén lần hai, tiết kiệm vài chục phút).
+      - name: Đóng gói runtime trọn gói (nguồn tải cho bản nhẹ)
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag.StartsWith('v')) { $tag = "v$tag" }
+          $zip = "ApkStart-runtime-$tag.zip"
+          if (-not (Test-Path "build\runtime\emulator\emulator.exe")) { Write-Error "build\runtime không đầy đủ"; exit 1 }
+          tar.exe -a -cf $zip -C "build\runtime" .
+          if ($LASTEXITCODE -ne 0) { Write-Error "Đóng gói runtime thất bại"; exit 1 }
+          Get-Item $zip | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
+
+      - name: Tải gói runtime trọn gói lên Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag.StartsWith('v')) { $tag = "v$tag" }
+          $zip = "ApkStart-runtime-$tag.zip"
+          $ok = $false
+          for ($i = 1; $i -le 3 -and -not $ok; $i++) {
+            gh release upload $tag $zip --clobber
+            if ($LASTEXITCODE -eq 0) { $ok = $true } else { Start-Sleep -Seconds 20 }
+          }
+          if (-not $ok) { Write-Error "Tải lên thất bại: $zip"; exit 1 }
+          gh release view $tag --json assets --jq '.assets[] | "\(.name) \(.size)"'

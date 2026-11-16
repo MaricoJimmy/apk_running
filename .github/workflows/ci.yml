@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Kiểm thử đơn vị (Windows / Node ${{ matrix.node }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # Kiểm thử đơn vị không cần binary Electron, bỏ qua lượt tải 188MB để tăng tốc CI
+      - name: Cài đặt phụ thuộc
+        run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      - name: Chạy kiểm thử
+        run: npm test
+
+      # Gọi trực tiếp callback hook C# nhúng trong agent.ps1, tránh ánh xạ phím bị sửa hỏng
+      - name: Smoke test logic hook chuột
+        shell: powershell
+        run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+          $out = & .\test\pointer-hook-logic.ps1
+          $out | ForEach-Object { Write-Host $_ }
+          if (-not ($out -contains 'POINTER_HOOK_LOGIC_OK')) { exit 1 }

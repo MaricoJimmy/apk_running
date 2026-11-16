@@ -1,0 +1,77 @@
+appId: com.apkstart.win
+productName: ApkStart
+copyright: Copyright © 2026 ApkStart
+
+directories:
+  output: dist/release
+  buildResources: build
+
+# Chỉ mang theo các file cần để chạy; thư mục mã nguồn được đóng gói nguyên khối (không dùng asar: proxy cửa sổ cần đường dẫn .ps1 thật)
+asar: false
+files:
+  - src/**/*
+  - package.json
+  - LICENSE
+  - "!**/*.map"
+  - "!**/node_modules/**"
+  # Dùng để giải nén ảnh hệ thống .xz lúc chạy (NAPI biên dịch sẵn, không có vấn đề ABI)
+  - "node_modules/@napi-rs/lzma/**"
+  - "node_modules/@napi-rs/lzma-win32-x64-msvc/**"
+  - "!node_modules/@napi-rs/lzma/*.md"
+  - "!node_modules/@napi-rs/lzma/*.ts"
+  - "!node_modules/@napi-rs/lzma/browser-entry.*"
+
+# Chỉ giữ một vài ngôn ngữ giao diện (locales của Electron giảm từ 41MB xuống ~3MB)
+electronLanguages:
+  - vi
+  - zh-CN
+  - zh-TW
+  - en-US
+
+# Runtime đầy đủ (emulator + platform-tools + ảnh hệ thống), do build/prepare-runtime.js tạo ra.
+# Sau khi đóng vào gói, lần khởi động đầu tiên không cần tải thêm gì nữa.
+extraResources:
+  - from: build/runtime
+    to: runtime
+    filter:
+      - "**/*"
+      - "!.prepared"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: src/ui/assets/appicon.ico
+  # Cài vào thư mục người dùng hiện tại, không ghi vào ổ hệ thống, không yêu cầu quyền quản trị
+  requestedExecutionLevel: asInvoker
+
+nsis:
+  # Không còn là "cài một chạm vào thư mục mặc định trên ổ C": chuyển sang trình hướng dẫn chuẩn, cho phép người dùng chọn vị trí cài đặt
+  # (cài sang ổ khác ổ hệ thống giúp giảm tải cho ổ C; thư mục dữ liệu runtime được chỉ định riêng trong phần Cài đặt).
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  displayLanguageSelector: false
+  # Ngôn ngữ trình cài đặt: tiếng Việt (LCID 1066)
+  installerLanguages:
+    - vi_VN
+  language: "1066"
+  # always: kể cả khi trên desktop đã có .lnk cùng tên vẫn tạo lại một lần.
+  # Giá trị mặc định true chỉ tạo khi "chưa tồn tại"; trên một số máy (phần mềm bảo mật chặn, desktop bị
+  # OneDrive chuyển hướng, bản cũ để lại shortcut hỏng trỏ tới thư mục đã xóa) sẽ xảy ra cài xong không có biểu tượng,
+  # hoặc biểu tượng vẫn trỏ tới exe cũ. always đảm bảo sau mỗi lần cài đều trỏ tới thư mục cài đặt hiện tại.
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  artifactName: ApkStart-${version}-Setup.exe
+  # Trước khi gỡ cài đặt, kết thúc các tiến trình runtime còn đang chạy để tránh file bị khóa không xóa được
+  # (các công cụ hủy file như Huorong không xóa được thì phần lớn là do tiến trình qemu/adb vẫn còn chạy ngầm).
+  include: build/installer.nsh
+  # Bản thân gói cài đã chứa runtime đầy đủ (emulator + ảnh hệ thống .gz); sau khi cài, lần khởi động đầu
+  # tự động giải nén ảnh vào thư mục người dùng, từ đó không cần tải thêm gì qua mạng.
+
+# Mức nén: normal (zlib). Ảnh hệ thống vốn đã là xz/gz, lớp NSIS chỉ nén các dll của Electron;
+# normal và maximum chênh lệch dung lượng rất ít, nhưng maximum (LZMA) làm việc đóng gói trình cài đặt chậm thêm hơn chục phút.
+# Lưu ý: khi CI chạy npx bằng PowerShell, tham số nội dòng -c.compression=xxx sẽ bị tách và bị coi là đường dẫn file cấu hình,
+# vì vậy mức nén được đặt thống nhất ở đây, không ghi đè bằng -c nội dòng trong workflow.
+compression: normal

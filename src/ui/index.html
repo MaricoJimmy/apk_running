@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+<title>ApkStart</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="theme.css" />
+</head>
+<body>
+
+<!-- Dấu thương hiệu: ở kích thước nhỏ vẫn phải nhận ra được, nên dùng vector chứ không thu bitmap 1024 xuống 22px -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2ee6a6"/>
+      <stop offset="55%" stop-color="#12b886"/>
+      <stop offset="100%" stop-color="#0a6f47"/>
+    </linearGradient>
+  </defs>
+  <symbol id="brandMark" viewBox="0 0 48 48">
+    <rect x="1.5" y="1.5" width="45" height="45" rx="13.5" fill="url(#brandGrad)"/>
+    <rect x="1.5" y="1.5" width="45" height="45" rx="13.5" fill="none" stroke="rgba(255,255,255,.34)" stroke-width="1.4"/>
+    <path d="M18.5 14.5 35 24 18.5 33.5z" fill="#fff"/>
+  </symbol>
+</svg>
+
+<header class="titlebar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 48 48" width="22" height="22"><use href="#brandMark"/></svg>
+    </div>
+    <span class="brand-name">ApkStart</span>
+    <span class="brand-tag" id="engineTag">Chưa kết nối runtime</span>
+  </div>
+  <div class="titlebar-spacer"></div>
+  <div class="titlebar-actions">
+    <button class="icon-btn" id="btnSettings" title="Cài đặt">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6h.09A1.7 1.7 0 0 0 10 3.05V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.09a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="shell">
+  <section class="toolbar">
+    <div class="search">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="search" type="text" placeholder="Tìm ứng dụng đã cài" autocomplete="off" />
+    </div>
+    <div class="toolbar-right">
+      <button class="btn primary" id="btnInstall">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v10"/><path d="m7 12 5 5 5-5"/><path d="M5 20h14"/></svg>
+        Cài APK
+      </button>
+    </div>
+  </section>
+
+  <section class="content" id="content">
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty">
+      <div class="empty-art">
+        <svg viewBox="0 0 160 120" width="220">
+          <rect x="18" y="16" width="124" height="50" rx="10" fill="#eef1f4" stroke="#dde2e8"/>
+          <rect x="34" y="34" width="30" height="14" rx="4" fill="#cfd8e3"/>
+          <rect x="72" y="34" width="52" height="6" rx="3" fill="#dde5ee"/>
+          <rect x="72" y="44" width="36" height="6" rx="3" fill="#e6ecf3"/>
+          <path d="M80 76v22m0 0-9-9m9 9 9-9" stroke="#9fb0c2" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <rect x="40" y="100" width="80" height="8" rx="4" fill="#eef1f4"/>
+        </svg>
+      </div>
+      <h2>Kéo thả APK vào đây để cài</h2>
+      <p>Cài xong sẽ tự tạo biểu tượng trên desktop, nhấp đúp là chạy trong cửa sổ riêng, giống phần mềm Windows bình thường.<br/>Khi đã liên kết .apk, nhấp đúp APK trong File Explorer cũng cài thẳng vào ApkStart.</p>
+      <button class="btn primary lg" id="btnInstall2">Chọn file APK</button>
+      <p class="hint" id="emptyHint"></p>
+    </div>
+  </section>
+
+  <footer class="statusbar">
+    <div class="status-left">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Đang kiểm tra runtime…</span>
+      <button class="status-chip" id="envChip" hidden></button>
+    </div>
+    <div class="status-right">
+      <span class="status-item" id="statusDevice"></span>
+      <span class="sep"></span>
+      <span class="status-item" id="statusStats"></span>
+      <span class="sep"></span>
+      <a class="status-item powered-link" href="https://github.com/RoutineMiku/apkstart" target="_blank" rel="noopener">Powered by RoutineMiku</a>
+    </div>
+  </footer>
+</main>
+
+<!-- Thẻ chào mừng khi khởi động: thay cho các gợi ý khởi động nhỏ lẻ trước đây -->
+<div class="modal-mask welcome-mask" id="welcomeMask" hidden>
+  <div class="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeHi">
+    <div class="welcome-hero">
+      <div class="welcome-halo"></div>
+      <div class="welcome-badge"><svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true"><use href="#brandMark"/></svg></div>
+      <div class="welcome-hi" id="welcomeHi">Xin chào</div>
+      <div class="welcome-sub" id="welcomeSub">ApkStart đã sẵn sàng</div>
+    </div>
+    <div class="welcome-body">
+      <div class="welcome-stats" id="welcomeStats"></div>
+      <div class="welcome-tips" id="welcomeTips"></div>
+      <label class="welcome-opt">
+        <input type="checkbox" id="welcomeNever" />
+        <span>Không tự bật lần khởi động sau</span>
+      </label>
+    </div>
+    <div class="welcome-actions">
+      <button class="btn ghost" id="welcomeSettings">Mở cài đặt</button>
+      <button class="btn primary" id="welcomeOk">Bắt đầu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tiến độ cài đặt -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- Lớp phủ kéo thả -->
+<div class="dropzone" id="dropzone">
+  <div class="dropzone-inner">
+    <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/></svg>
+    <strong>Thả ra để bắt đầu cài</strong>
+    <span>Hỗ trợ một hoặc nhiều file .apk</span>
+  </div>
+</div>
+
+<!-- Menu chuột phải -->
+<div class="ctxmenu" id="ctxmenu"></div>
+
+<!-- Cài đặt -->
+<div class="modal-mask" id="settingsMask">
+  <div class="modal">
+    <header class="modal-head">
+      <h2>Cài đặt</h2>
+      <button class="icon-btn" id="btnCloseSettings">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+    <div class="modal-body">
+      <div class="group" id="runtimeGroup">
+        <div class="group-title">Runtime và môi trường</div>
+        <div class="field">
+          <label>Trạng thái</label>
+          <div class="row" style="align-items:center;">
+            <span class="inline-note" id="setupStateText">Đang kiểm tra…</span>
+            <span style="flex:1"></span>
+            <button class="btn primary sm" id="btnDeployAll">Thiết lập nhanh</button>
+            <button class="btn ghost sm" id="btnSetupAdvanced">Nâng cao: kết nối runtime có sẵn</button>
+          </div>
+          <span class="sub" id="setupNote">Hoàn toàn tự động: không cần chọn ảnh hệ thống, bật tăng tốc hay chỉnh RAM</span>
+        </div>
+        <div class="field">
+          <div class="steps" id="setupSteps"></div>
+        </div>
+        <div id="envCheck" class="env-check" hidden></div>
+
+        <div class="setup-guide" id="setupGuide" hidden>
+          <h2>Cài Android vào đĩa ảo</h2>
+          <p class="guide-sub">Cửa sổ máy ảo đã mở. Làm theo 6 bước dưới đây một lần, sau đó ApkStart sẽ khởi động thẳng từ đĩa, không cần ảnh ISO nữa.</p>
+          <ol class="guide-list">
+            <li><b>Menu khởi động</b>: dùng <kbd>↓</kbd> chọn <code>Installation - Install Android-x86 to harddisk</code>, nhấn Enter</li>
+            <li><b>Choose Partition</b>: chọn <code>Create/Modify partitions</code>; khi hỏi có dùng GPT không thì chọn <code>No</code></li>
+            <li><b>Phân vùng cfdisk</b>: <code>New</code> → <code>Primary</code> → dung lượng nhấn Enter luôn → <code>Bootable</code> → <code>Write</code> → nhập <code>yes</code> → <code>Quit</code></li>
+            <li><b>Định dạng</b>: chọn <code>vda1</code> → khi hỏi định dạng chọn <code>ext4</code> → <code>Yes</code></li>
+            <li><b>Bootloader và hệ thống</b>: <code>Install GRUB</code> chọn <code>Yes</code>; <code>Install /system as read-write</code> chọn <code>Yes</code></li>
+            <li><b>Hoàn tất</b>: khi tiến độ tới 100% thì bấm "Tôi đã cài xong" bên dưới (ApkStart sẽ tự khởi động lại và tiếp quản)</li>
+          </ol>
+          <p class="guide-tip">Nếu sau đó báo adb chưa kết nối: trong cửa sổ máy ảo nhấn <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F1</kbd> để vào terminal, chạy
+            <code>setprop service.adb.tcp.port 5555</code>, <code>stop adbd</code>, <code>start adbd</code>,
+            rồi nhấn <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F7</kbd> để về giao diện đồ họa.</p>
+          <div class="guide-foot">
+            <button class="btn primary" id="btnMarkInstalled">Tôi đã cài xong</button>
+            <button class="btn ghost" id="btnGuideClose">Để sau</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Chế độ tự động (mặc định, không cần cài đặt)</div>
+        <div class="field">
+          <label>Thông số tự thích ứng của máy</label>
+          <div class="inline-note" id="autoProfileText">Đang phát hiện…</div>
+          <span class="sub">RAM, số nhân, backend kết xuất, cổng, cách tăng tốc đều được chọn tự động; khởi động thất bại sẽ tự hạ cấp và thử lại, không cần sửa tay.</span>
+        </div>
+        <div class="field">
+          <label>Tổng dung lượng đĩa (runtime + dữ liệu Android + cache)</label>
+          <div class="row">
+            <span class="inline-note" id="usageText">Đang thống kê…</span>
+            <button class="btn ghost sm" id="btnCleanup">Dọn file có thể thu hồi</button>
+            <button class="btn ghost sm" id="btnLeftovers" title="Quét và dọn thư mục chương trình do bản cũ để lại, mục gỡ cài đặt hết hiệu lực và file tạm của bản cập nhật">Dọn tàn dư bản cũ</button>
+            <button class="btn ghost sm" id="btnRepairNetwork" title="Khi máy ảo Android không có mạng (trang cần mạng trong ứng dụng cứ đen màn hình/quay mãi), dùng nút này để đặt lại dữ liệu Android và sửa mạng. Danh sách ứng dụng được giữ lại, mở ứng dụng sẽ tự cài lại">Sửa mạng</button>
+            <button class="btn ghost sm danger" id="btnResetData" title="Xóa sạch dữ liệu người dùng /data của Android + ứng dụng đã cài + snapshot khởi động nhanh, đưa về trạng thái sạch như vừa cài hệ thống">Đặt lại dữ liệu Android</button>
+          </div>
+          <label class="checkbox-inline">
+            <input type="checkbox" id="chkCleanSnapshots" />
+            <span>Xóa luôn snapshot khởi động nhanh của AVD hiện tại (sẽ dừng runtime trước, thu hồi được vài GB snapshot)</span>
+          </label>
+          <span class="sub">Ảnh hệ thống dùng chung một bản cho toàn máy, dữ liệu ứng dụng lưu bằng lớp vi sai; ảnh cũ, snapshot cũ, log và file khóa đều thu hồi được. Log vượt giới hạn sẽ tự xoay vòng, không tăng vô hạn. "Đặt lại dữ liệu Android" sẽ xóa thật vài GB dữ liệu người dùng, chỉ giữ lại hệ thống.</span>
+        </div>
+        <div class="runtime-actions">
+          <button class="btn ghost sm" id="btnDiagnostics">Xuất báo cáo chẩn đoán</button>
+          <button class="btn ghost sm" id="btnRebuildShortcuts">Tạo lại lối tắt</button>
+          <span class="inline-note">Báo cáo chẩn đoán dùng để xử lý sự cố; tạo lại sẽ bổ sung đủ lối tắt Desktop + Start Menu</span>
+        </div>
+        <div class="field switch-field">
+          <div>
+            <label>Tự khởi động cùng Windows (mặc định bật)</label>
+            <span class="sub">Thường trú ở khay hệ thống khi đăng nhập Windows, nhấp đúp biểu tượng desktop là mở ứng dụng ngay, không cần khởi động thủ công.</span>
+          </div>
+          <input type="checkbox" id="setAutoStart" class="switch" />
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Cửa sổ ứng dụng</div>
+        <div class="field">
+          <label>Chế độ hiển thị</label>
+          <select id="setDisplayMode">
+            <option value="window">Cửa sổ dọc (co giãn tự do, nhớ kích thước từng ứng dụng)</option>
+            <option value="fullscreen">Toàn màn hình (phủ kín màn hình, giữ tỉ lệ điện thoại, hai bên để đen)</option>
+          </select>
+          <span class="sub">Nhấn <b>F11</b> hoặc chuột phải vào khay để chuyển bất cứ lúc nào; toàn màn hình chỉ phóng to cửa sổ, không đổi tỉ lệ hình, chuyển không khởi động lại ứng dụng.</span>
+        </div>
+        <div class="field" id="portraitField">
+          <label>Kích thước màn hình dọc</label>
+          <select id="setPortrait">
+            <option value="720x1280">Nhỏ · 720 × 1280</option>
+            <option value="900x1600">Vừa · 900 × 1600</option>
+            <option value="1080x1920">Lớn · 1080 × 1920</option>
+            <option value="1440x2560">Rất lớn · 1440 × 2560</option>
+          </select>
+          <span class="sub">Ở chế độ cửa sổ có thể kéo viền để co giãn tùy ý; đây là kích thước kết xuất bên trong Android, càng nhỏ càng nhẹ máy.</span>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Phím chuột</div>
+        <div class="field">
+          <label>Chuột trái · Xác nhận / Chạm</label>
+          <span class="sub">Trình giả lập coi chuột trái như ngón tay chạm, giữ và kéo là vuốt, không cần cài đặt thêm.</span>
+        </div>
+        <div class="field switch-field">
+          <div>
+            <label>Chuột phải · Quay lại Android</label>
+            <span class="sub">Trình giả lập mặc định coi chuột phải cũng là một lần chạm (dễ bấm nhầm). Bật lên thì chuột phải chỉ thực hiện quay lại, không kích hoạt chạm.</span>
+          </div>
+          <input type="checkbox" id="setMouseRightBack" class="switch" />
+        </div>
+        <div class="field">
+          <label>Con lăn · Vuốt</label>
+          <select id="setMouseWheelMode">
+            <option value="smooth">Mượt (khuyên dùng) · gộp nhiều lần cuộn thành một lần vuốt trơn tru</option>
+            <option value="native">Gốc · giao cho trình giả lập xử lý từng nấc</option>
+            <option value="off">Tắt · không chặn con lăn</option>
+          </select>
+          <span class="sub">Chế độ mượt gộp các lần cuộn trong một khoảng ngắn thành một cử chỉ vuốt, tránh giật từng nấc, cũng không phải mỗi nấc lại gọi một tiến trình adb.</span>
+        </div>
+        <div class="field switch-field">
+          <div>
+            <label>Nút bên chuột · Lùi / Tiến (mặc định tắt)</label>
+            <span class="sub">Ánh xạ nút bên cần hook chuột toàn cục. Hook chỉ được cài khi cửa sổ ứng dụng ApkStart ở tiền cảnh, mất focus hoặc đóng là gỡ ngay, không làm chậm desktop.</span>
+          </div>
+          <input type="checkbox" id="setMouseSideButtons" class="switch" />
+        </div>
+        <div class="field">
+          <span class="sub">Các ánh xạ trên chỉ có hiệu lực khi cửa sổ ứng dụng ở tiền cảnh; về desktop hoặc đóng cửa sổ thì chuột hoạt động hoàn toàn như Windows gốc.</span>
+        </div>
+      </div>
+
+      <div class="group" id="perfGroup">
+        <div class="group-title">Hiệu năng và tài nguyên</div>
+        <div class="field">
+          <label>Chiến lược tài nguyên</label>
+          <select id="setResourceMode">
+            <option value="save">Tiết kiệm · 2 nhân / nhường tiền cảnh / 540p (máy cũ, treo máy)</option>
+            <option value="balanced">Cân bằng · nửa số nhân vật lý / nhường tiền cảnh / 720p (khuyên dùng)</option>
+            <option value="smooth">Mượt · không giới hạn nhân / ưu tiên ngang tiền cảnh (video, game)</option>
+          </select>
+          <span class="sub">Quyết định máy ảo Android dùng bao nhiêu CPU và hình ảnh chi tiết tới đâu. Ứng dụng video/TikTok bị giật thì chọn "Mượt", chỉ muốn treo ứng dụng nhỏ thì chọn "Tiết kiệm". Có hiệu lực từ lần mở ứng dụng tiếp theo.</span>
+        </div>
+        <div class="field two">
+          <div>
+            <label>Chất lượng hình (độ phân giải kết xuất của Android)</label>
+            <select id="setRenderSize">
+              <option value="auto">Tự động (theo trạng thái tăng tốc)</option>
+              <option value="540x960">Mượt · 540 × 960</option>
+              <option value="720x1280">Cân bằng · 720 × 1280</option>
+              <option value="1080x1920">Nét cao · 1080 × 1920</option>
+            </select>
+          </div>
+          <div>
+            <label>Phân vùng dữ liệu Android (nơi cài ứng dụng và game)</label>
+            <select id="setDataGB">
+              <option value="0">Tự động</option>
+              <option value="4">4 GB</option>
+              <option value="6">6 GB</option>
+              <option value="8">8 GB</option>
+              <option value="12">12 GB</option>
+              <option value="16">16 GB</option>
+              <option value="24">24 GB</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <div class="row">
+            <button class="btn ghost sm" id="btnGrowData">Mở rộng ngay</button>
+            <span class="sub" style="flex:1;margin:0">Mở rộng tại chỗ: ứng dụng đã cài và dữ liệu lưu đều được giữ, chỉ là lần mở ứng dụng sau mất thêm chục giây.</span>
+          </div>
+        </div>
+        <div class="field">
+          <span class="sub" id="dataNote">Đang đọc phân vùng dữ liệu…</span>
+        </div>
+        <div class="field switch-field">
+          <div>
+            <label>Tăng tốc mạng (khuyên dùng)</label>
+            <span class="sub">Chỉ định DNS công cộng Trung Quốc (Alibaba / Tencent) cho Android. Android mặc định dùng DNS của máy chủ, khi máy chủ bật VPN hoặc dùng mạng công ty, phân giải có thể kéo dài vài trăm ms, ứng dụng video tải màn hình đầu chậm. Nếu truy cập tên miền nội bộ bị lỗi thì có thể tắt.</span>
+          </div>
+          <input type="checkbox" id="setFastDns" class="switch" />
+        </div>
+        <div class="field switch-field">
+          <div>
+            <label>Âm thanh Android</label>
+            <span class="sub">Cho phép âm thông báo và âm thanh video của ứng dụng phát bình thường. Chỉ tắt khi bạn hoàn toàn không cần âm thanh và muốn tiết kiệm thêm chút CPU.</span>
+          </div>
+          <input type="checkbox" id="setAudio" class="switch" />
+        </div>
+        <div class="field switch-field">
+          <div>
+            <label>Giữ snapshot khởi động nhanh (khuyên dùng)</label>
+            <span class="sub">Lần mở ứng dụng thứ hai chỉ mất vài giây, đổi lại trên đĩa có thêm file <code>ram.bin</code> khoảng 2–3 GB. Khi đĩa chật có thể tắt: chỉ ảnh hưởng tốc độ khởi động, không ảnh hưởng ứng dụng và dữ liệu lưu.</span>
+          </div>
+          <input type="checkbox" id="setKeepSnapshot" class="switch" />
+        </div>
+        <details class="mini-details">
+          <summary>Chi tiết container (nâng cao)</summary>
+          <div class="field switch-field">
+            <div>
+              <label>Container nhẹ</label>
+              <span class="sub">Giới hạn hạn mức vCPU và hạ mức ưu tiên tiến trình, nhường CPU cho desktop Windows. "Chiến lược tài nguyên" ở trên đã tự thiết lập mục này.</span>
+            </div>
+            <input type="checkbox" id="setLiteMode" class="switch" />
+          </div>
+          <div class="field">
+            <label>Mức ưu tiên máy ảo</label>
+            <select id="setPriorityMode">
+              <option value="balanced">Cân bằng (khuyên dùng) · runtime nhường cửa sổ tiền cảnh</option>
+              <option value="performance">Ưu tiên hiệu năng · runtime ưu tiên ngang tiền cảnh</option>
+              <option value="game">Game / Độ trễ thấp · runtime ưu tiên cao, hợp với FPS, game nhịp điệu</option>
+            </select>
+            <span class="sub">Chế độ game giữ máy ảo Android ở mức ưu tiên CPU cao và giảm thăm dò phía máy chủ, độ trễ nhập liệu và hình ảnh thấp nhất; đổi lại các chương trình khác trên máy sẽ chậm hơn. Khi không có cửa sổ ứng dụng, container vẫn tự hạ ưu tiên để chờ.</span>
+          </div>
+        </details>
+        <div class="field switch-field">
+          <div>
+            <label>Cắt sâu nền hệ thống</label>
+            <span class="sub">Tắt thêm các gói nền như Play Store, trình hướng dẫn cài đặt, dịch vụ in..., chỉ giữ môi trường cần thiết để mở ứng dụng. Nếu ứng dụng báo thiếu Google Play Services, tắt công tắc này sẽ tự khôi phục.</span>
+          </div>
+          <input type="checkbox" id="setDeepTrim" class="switch" />
+        </div>
+        <div class="field switch-field">
+          <div>
+            <label>Khởi động trước (khuyên dùng)</label>
+            <span class="sub">Sau khi mở ApkStart sẽ khởi động sẵn môi trường Android ở nền (cửa sổ ẩn hoàn toàn, không thấy trình giả lập). Sau đó mở ứng dụng nào cũng chỉ còn một bước "mở", thực tế từ hơn 20 giây xuống gần như không phải chờ. Đổi lại khi rảnh vẫn chiếm khoảng 1GB RAM; tắt đi thì lần đầu mở ứng dụng phải khởi động nguội.</span>
+          </div>
+          <input type="checkbox" id="setPrewarm" class="switch" />
+        </div>
+        <div class="field">
+          <span class="sub">Môi trường Android chỉ khởi động một lần và thường trú; sau đó mở ứng dụng không chạy lại cả hệ thống, chỉ khởi động ứng dụng đó và dừng tiến trình ứng dụng khác. Đóng cửa sổ cuối cùng sẽ dọn nền, cho container nghỉ, lần sau mở vẫn vào ngay.</span>
+        </div>
+      </div>
+
+      <div class="group" id="downloadGroup">
+        <div class="group-title">Nguồn tải xuống và cập nhật</div>
+        <div class="field">
+          <label>Nguồn cập nhật và tải xuống</label>
+          <select id="setSourcePref">
+            <option value="auto">Tự chọn nguồn nhanh hơn (khuyên dùng)</option>
+            <option value="gitee">Chỉ dùng Gitee (thường nhanh nhất ở Trung Quốc)</option>
+            <option value="github">Chỉ dùng GitHub</option>
+          </select>
+          <span class="sub">"Tự động" sẽ hỏi đồng thời phiên bản mới nhất trên GitHub và Gitee, tải thật 256KB từ mỗi địa chỉ để đo tốc độ, rồi tải từ địa chỉ nhanh nhất; một nguồn không kết nối được cũng không ảnh hưởng việc cập nhật.</span>
+        </div>
+        <div class="field switch-field">
+          <div>
+            <label>Tự thử mirror tăng tốc công cộng</label>
+            <span class="sub">Khi kết nối thẳng GitHub quá chậm, đo thêm tốc độ hai dịch vụ chuyển tiếp công khai ghfast.top / gh-proxy.com (chỉ chuyển tiếp file phát hành công khai, không liên quan tài khoản). Tắt đi thì chỉ dùng kết nối thẳng và tiền tố bạn tự điền.</span>
+          </div>
+          <input type="checkbox" id="setAutoMirror" class="switch" />
+        </div>
+        <div class="field">
+          <label>Tiền tố mirror tải xuống (tùy chọn, tăng tốc GitHub)</label>
+          <input id="setMirrorPrefix" type="text" placeholder="Ví dụ https://ghfast.top/" />
+          <span class="sub">Đã điền thì chỉ dùng tiền tố bạn điền, không thử hai mirror công cộng ở trên; để trống thì do logic "Tự động" quyết định. Trình tải sẽ ghép nó vào trước địa chỉ thật.</span>
+        </div>
+        <div class="field">
+          <label>Số luồng tải (1–16, mặc định 8)</label>
+          <input id="setConnections" type="number" min="1" max="16" step="1" />
+          <span class="sub">File lớn được tải song song theo khối. Mặc định 8 luồng đã đủ tận dụng hết hầu hết mạng gia đình; mạng ổn định có thể thử 16.</span>
+        </div>
+        <details class="mini-details">
+          <summary>Nguồn cập nhật Gitee (tùy chọn)</summary>
+          <div class="field">
+            <label>Token chỉ đọc Gitee (thường không cần điền)</label>
+            <input id="setGiteeToken" type="password" placeholder="Để trống là được: repo công khai đọc ẩn danh được" />
+            <span class="sub">Repo của dự án đã công khai, danh sách release trên Gitee đọc ẩn danh được, để trống vẫn dùng được nguồn Gitee.
+              Chỉ cần điền khi "Gitee bị giới hạn (trả về 403/429)" hoặc bạn muốn đọc nhánh riêng tư:
+              gitee.com → Cài đặt → Token cá nhân, chỉ tích "projects" là đủ, nó chỉ dùng để đọc danh sách release,
+              không tải lên bất cứ thứ gì.</span>
+          </div>
+        </details>
+      </div>
+
+      <details class="advanced-group">
+        <summary>Tham số nâng cao (thường không cần sửa)</summary>
+      <div class="group">
+        <div class="group-title">Runtime</div>
+        <div class="field">
+          <label>Chế độ engine</label>
+          <select id="setEngineMode">
+            <option value="builtin">Runtime tích hợp (khuyên dùng, QEMU + Android-x86, không phụ thuộc bên thứ ba)</option>
+            <option value="attach">Kết nối runtime có sẵn (nâng cao: dùng lại cổng adb của WSA / trình giả lập khác)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Đường dẫn adb</label>
+          <input id="setAdbPath" type="text" placeholder="Để trống thì tự tìm trong PATH / Android SDK" />
+        </div>
+        <div class="field">
+          <label>Địa chỉ thiết bị</label>
+          <div class="row">
+            <input id="setDevice" type="text" placeholder="127.0.0.1:58526" />
+            <button class="btn ghost sm" id="btnProbe">Dò tìm</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Ảnh hệ thống (ISO)</label>
+          <input id="setSystemImage" type="text" placeholder="Đường dẫn ISO hoặc IMG của Android-x86 / Bliss OS, để trống dùng vị trí mặc định" />
+        </div>
+        <div class="field two">
+          <div>
+            <label>RAM (MB, 0 = tự động)</label>
+            <input id="setMemory" type="number" min="0" step="512" />
+          </div>
+          <div>
+            <label>Nhân CPU (0 = tự động)</label>
+            <input id="setCores" type="number" min="0" max="16" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Thu hồi khi rảnh (phút, 0 = không thu hồi)</label>
+          <input id="setIdle" type="number" min="0" step="1" />
+        </div>
+        <div class="field switch-field">
+          <div>
+            <label>Ảnh tương thích chung (tự quản lý)</label>
+            <span class="sub">Hiện chỉ có một ảnh Android 14 chung, chạy được cả ứng dụng x86 và ARM, lần đầu gặp ứng dụng ARM sẽ tự tải về, không cần chuyển thủ công. Công tắc này chỉ để tương thích cấu hình cũ.</span>
+          </div>
+          <input type="checkbox" id="setCompat" class="switch" />
+        </div>
+        <div class="field" id="compatInstallField" hidden>
+          <label>Ảnh tương thích</label>
+          <div class="row">
+            <span class="inline-note" id="compatImgStatus">Chưa tải</span>
+            <button class="btn ghost sm" id="btnInstallPlay">Tải ảnh tương thích</button>
+          </div>
+        </div>
+        <div class="runtime-actions">
+          <button class="btn ghost sm" id="btnRuntimeStart">Khởi động runtime</button>
+          <button class="btn ghost sm" id="btnRuntimeStop">Dừng máy ảo tích hợp</button>
+          <span class="inline-note" id="probeResult"></span>
+        </div>
+      </div>
+      </details>
+
+      <div class="group">
+        <div class="group-title">Cài đặt hệ thống Android (không cần vào desktop Android)</div>
+        <div class="field">
+          <label>Trạng thái</label>
+          <div class="row">
+            <span class="inline-note" id="androidStatus">Runtime chưa khởi động</span>
+            <button class="btn ghost sm" id="btnAndroidRefresh">Làm mới</button>
+            <button class="btn ghost sm" id="btnAndroidTune">Tối ưu mượt</button>
+          </div>
+          <span class="sub">Tắt hiệu ứng hệ thống, nới giới hạn tiến trình nền và đưa ứng dụng hiện tại vào danh sách trắng pin, máy cấu hình thấp cảm nhận rõ nhất.</span>
+        </div>
+        <div class="field switch-field">
+          <div>
+            <label>Wi-Fi</label>
+            <span class="sub">Mạng không dây bên trong máy ảo Android, tắt đi có thể tiết kiệm chút CPU.</span>
+          </div>
+          <input type="checkbox" id="setAndroidWifi" class="switch" />
+        </div>
+        <div class="field switch-field">
+          <div>
+            <label>Chế độ máy bay</label>
+            <span class="sub">Ngắt mạng hoàn toàn (kể cả dữ liệu di động), bật khi cần yên tĩnh.</span>
+          </div>
+          <input type="checkbox" id="setAndroidAirplane" class="switch" />
+        </div>
+        <div class="field switch-field">
+          <div>
+            <label>Hiệu ứng hệ thống</label>
+            <span class="sub">Tắt đi thì chuyển giao diện nhanh hơn rõ rệt, chức năng không bị ảnh hưởng.</span>
+          </div>
+          <input type="checkbox" id="setAndroidAnim" class="switch" />
+        </div>
+        <div class="field">
+          <label>Âm lượng media</label>
+          <div class="row">
+            <input type="range" id="setAndroidVolume" min="0" max="100" step="1" style="flex:1" />
+            <span class="inline-note" id="androidVolumeText">—</span>
+          </div>
+        </div>
+        <div class="field two">
+          <div>
+            <label>Cỡ chữ</label>
+            <select id="setAndroidFont">
+              <option value="0.85">Nhỏ</option>
+              <option value="1.00">Chuẩn</option>
+              <option value="1.15">Lớn</option>
+              <option value="1.30">Rất lớn</option>
+            </select>
+          </div>
+          <div>
+            <label>Kích thước hiển thị</label>
+            <select id="setAndroidDensity">
+              <option value="240">Gọn (nhẹ máy)</option>
+              <option value="320">Chuẩn</option>
+              <option value="420">Rộng</option>
+              <option value="480">Rất lớn</option>
+            </select>
+          </div>
+        </div>
+        <div class="runtime-actions">
+          <button class="btn ghost sm" id="btnAndroidSettings">Cài đặt gốc Android</button>
+          <button class="btn ghost sm" id="btnAndroidDisplay">Hiển thị</button>
+          <button class="btn ghost sm" id="btnAndroidSound">Âm thanh</button>
+          <button class="btn ghost sm" id="btnAndroidLocale">Ngôn ngữ</button>
+          <button class="btn ghost sm" id="btnAndroidApps">Quản lý ứng dụng</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Desktop và ứng dụng</div>
+        <div class="field switch-field">
+          <div>
+            <label>Tự tạo lối tắt desktop sau khi cài</label>
+            <span class="sub">Lối tắt mang biểu tượng thật của ứng dụng, nhấp đúp là vào thẳng ứng dụng</span>
+          </div>
+          <input type="checkbox" id="setAutoShortcut" class="switch" />
+        </div>
+        <div class="field switch-field">
+          <div>
+            <label>Đồng thời thêm vào Start Menu</label>
+            <span class="sub">Windows Search tìm được tên ứng dụng, thanh tác vụ cũng nhóm theo ứng dụng</span>
+          </div>
+          <input type="checkbox" id="setStartMenuShortcut" class="switch" />
+        </div>
+        <div class="field">
+          <label>Thư mục lối tắt</label>
+          <input id="setShortcutDir" type="text" placeholder="Để trống = Desktop" />
+        </div>
+        <div class="runtime-actions">
+          <button class="btn ghost sm" id="btnRebuildShortcuts">Tạo lại lối tắt</button>
+          <span class="inline-note">Khi biểu tượng desktop bị xóa nhầm hoặc bị phần mềm bảo mật chặn, bấm đây để bổ sung lại toàn bộ theo cài đặt hiện tại.</span>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Chia sẻ file</div>
+        <div class="field">
+          <label>Thư mục chia sẻ trên máy</label>
+          <div class="row">
+            <input id="setSharedDir" type="text" />
+            <button class="btn ghost sm" id="btnBrowseShared">Duyệt</button>
+            <button class="btn ghost sm" id="btnOpenShared">Mở</button>
+            <button class="btn ghost sm" id="btnSyncShared">Đồng bộ ngay</button>
+            <button class="btn primary sm" id="btnSaveShared">Lưu và di chuyển</button>
+          </div>
+          <span class="sub">Sau khi đổi, file có sẵn trong thư mục cũ sẽ tự chuyển sang thư mục mới; việc chia sẻ file đang chạy không bị ảnh hưởng.</span>
+        </div>
+        <div class="field">
+          <label>Thư mục tương ứng trong Android</label>
+          <input id="setDeviceSharedDir" type="text" placeholder="/sdcard/ApkStartShared" />
+        </div>
+        <p class="note">Hai thư mục được đồng bộ hai chiều liên tục; file mà ứng dụng Android lưu vào thư mục này sẽ xuất hiện trong thư mục chia sẻ trên máy.</p>
+      </div>
+
+      <div class="group">
+        <div class="group-title">Tích hợp hệ thống</div>
+        <div class="field switch-field">
+          <div>
+            <label>Liên kết file .apk</label>
+            <span class="sub">Nhấp đúp APK để cài thẳng vào ApkStart (chỉ ghi cho người dùng hiện tại, không cần quyền quản trị)</span>
+          </div>
+          <button class="btn ghost sm" id="btnAssoc">Đang kiểm tra…</button>
+        </div>
+        <div class="field">
+          <label>Thư mục dữ liệu runtime (ảnh hệ thống · ứng dụng đã cài · snapshot)</label>
+          <div class="row">
+            <input id="setRuntimeDir" type="text" readonly placeholder="Mặc định: thư mục dữ liệu người dùng ổ C" />
+            <button class="btn ghost sm" id="btnBrowseRuntimeDir">Duyệt</button>
+            <button class="btn ghost sm" id="btnOpenData">Mở</button>
+          </div>
+          <span class="sub">Đây là phần chiếm dung lượng lớn nhất (vài GB). Chuyển sang ổ không phải ổ hệ thống sẽ giảm tải đáng kể cho ổ C; sau khi đổi cần khởi động lại phần mềm, dữ liệu có sẵn không tự chuyển (hãy sao chép thủ công rồi xóa thư mục cũ).</span>
+        </div>
+        <div class="field">
+          <label>Thư mục dữ liệu Android (ứng dụng, game và snapshot khởi động nhanh)</label>
+          <div class="row">
+            <input id="setAvdDir" type="text" readonly placeholder="Mặc định: thư mục avd trong thư mục runtime" />
+            <button class="btn ghost sm" id="btnBrowseAvdDir">Duyệt</button>
+            <button class="btn ghost sm" id="btnOpenAvdDir">Mở</button>
+          </div>
+          <span class="sub">Phần thực sự ngốn ổ đĩa là đây: phân vùng dữ liệu (mặc định 6 GB, có thể tăng ở trên) + snapshot khởi động nhanh (khoảng 2–3 GB).
+            Khi đĩa chật hãy trỏ nó sang ổ khác (như D:), có hiệu lực sau khi khởi động lại phần mềm; có thể chuyển nguyên <code>apkstart.avd</code> trong thư mục cũ sang rồi xóa.</span>
+        </div>
+        <div class="field">
+          <label>Gỡ cài đặt ApkStart</label>
+          <div class="row">
+            <button class="btn ghost sm" id="btnUninstall">Gỡ cài đặt</button>
+            <span class="inline-note">Gỡ cài đặt sẽ hủy liên kết .apk và xóa chương trình; bản portable vui lòng xóa thư mục thủ công theo hướng dẫn.</span>
+          </div>
+        </div>
+      </div>
+      <div class="group" id="updateGroup">
+        <div class="group-title">Cập nhật phần mềm</div>
+        <div class="field">
+          <label>Phiên bản hiện tại <span class="inline-note" id="updateCurrent">—</span></label>
+          <div class="row">
+            <span class="inline-note" id="updateState">Chưa kiểm tra</span>
+            <span style="flex:1"></span>
+            <button class="btn ghost sm" id="btnCheckUpdate">Kiểm tra cập nhật</button>
+            <button class="btn primary sm" id="btnDoUpdate" style="display:none" hidden>Cập nhật ngay</button>
+          </div>
+          <div class="update-bar" id="updateBar" hidden><i id="updateBarFill"></i></div>
+          <span class="sub" id="updateNote">
+            Lấy phiên bản mới nhất từ GitHub (RoutineMiku/apkstart); bản nhẹ sẽ tải gói portable và tự thay thế file chương trình,
+            runtime, ứng dụng đã cài và snapshot đều không bị ảnh hưởng.
+          </span>
+        </div>
+      </div>
+
+      <div class="group" id="aboutGroup">
+        <div class="group-title">Giới thiệu</div>
+        <div class="about-box">
+          <div class="about-brand">
+            <img class="about-logo" src="assets/logo.png" alt="ApkStart Logo" draggable="false" />
+          </div>
+          <div class="about-qrs">
+            <div class="about-qr">
+              <img src="assets/wechat-qr.jpg" alt="Mã QR tài khoản WeChat" width="112" height="112" />
+              <span class="about-qr-tip">Quét mã để theo dõi WeChat</span>
+            </div>
+            <div class="about-qr">
+              <img src="assets/douyin-qr.jpg" alt="Mã QR Douyin" width="112" height="112" />
+              <span class="about-qr-tip">Douyin · 日常MIKU</span>
+            </div>
+          </div>
+          <div class="about-info">
+            <div class="about-name">ApkStart <span class="about-ver" id="aboutVer"></span></div>
+            <p class="note">Trình chạy ứng dụng Android cho Windows, nhấp đúp là cài: cài APK, lối tắt desktop, chạy trong cửa sổ riêng, chia sẻ file hai chiều.</p>
+            <div class="about-links">
+              <a href="https://github.com/RoutineMiku/apkstart" target="_blank" rel="noopener">GitHub · RoutineMiku/apkstart</a>
+              <a href="https://v.douyin.com/9TIIxVCANig/" target="_blank" rel="noopener">Douyin · @日常MIKU (liên hệ tác giả)</a>
+              <span class="powered">Powered by <b>RoutineMiku</b></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <footer class="modal-foot">
+      <span class="inline-note">Thay đổi cài đặt có hiệu lực ngay</span>
+      <button class="btn primary" id="btnDoneSettings">Xong</button>
+    </footer>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
