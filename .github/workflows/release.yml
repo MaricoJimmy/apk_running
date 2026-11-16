@@ -75,38 +75,6 @@ jobs:
           if (-not $ok) { Write-Error "Tải lên thất bại: $zip"; exit 1 }
           gh release view $tag --json assets --jq '.assets[].name'
 
-      # Đồng bộ lên Gitee: từ Trung Quốc kết nối thẳng GitHub chỉ vài chục KB/s, Gitee thường đạt vài MB/s.
-      # Gói portable sau khi nén chặt khoảng 99.6MB, nằm trong giới hạn mỗi tệp của Gitee (100MB), nên đặt luôn một gói trọn,
-      # người dùng mở ra là giải nén được; chỉ khi vượt giới hạn publish-gitee.js mới quay về chia mảnh .part1/.part2.
-      # Setup (1.4GB) và gói runtime trọn (1.4GB) vượt giới hạn quá nhiều, chỉ để trên GitHub —
-      # phía ứng dụng lấy hợp của "nguồn nào có tài sản", nên không ảnh hưởng cập nhật.
-      # Đồng bộ Gitee khi "thiếu token / mất mạng" chỉ cảnh báo, không chặn: nếu không cả job build sẽ đỏ,
-      # job full bên dưới (needs: build) bị bỏ qua toàn bộ, đến Setup / gói runtime trên chính GitHub cũng không phát hành được.
-      # Thiếu token thì bước này vẫn được đánh dấu đỏ trong log (continue-on-error là "thấy được nhưng không chí mạng"), không im lặng.
-      - name: Đồng bộ bản portable lên Gitee
-        continue-on-error: true
-        env:
-          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
-        shell: pwsh
-        run: |
-          # Trước đây chỗ này "không cấu hình token thì lặng lẽ bỏ qua, bước này vẫn hiện thành công" —
-          # v0.3.4 đã lặng lẽ thiếu mất một phiên bản trên Gitee như vậy, mãi sau mới phát hiện.
-          # Nay thiếu token thì cho bước này thất bại luôn, thà đỏ một lần còn hơn im hơi lặng tiếng.
-          if (-not $env:GITEE_TOKEN) {
-            Write-Error "Thiếu GITEE_TOKEN: phiên bản này sẽ không có gói cài đặt trên Gitee. Hãy thêm GITEE_TOKEN tại Settings → Secrets and variables → Actions (chỉ cần chọn thêm quyền releases ngoài projects + pull_requests)."
-            exit 1
-          }
-          $tag = "${{ github.ref_name }}"
-          if (-not $tag.StartsWith('v')) { $tag = "v$tag" }
-          # Ghi chú phát hành dùng chung một bản với GitHub, đừng để bên Gitee chỉ còn mỗi một câu "gói cài đặt bản portable"
-          $notes = ".github/release-notes-$tag.md"
-          if (Test-Path $notes) {
-            node tools/publish-gitee.js $tag --zip "ApkStart-$tag-win64-portable.zip" --notes $notes
-          } else {
-            node tools/publish-gitee.js $tag --zip "ApkStart-$tag-win64-portable.zip"
-          }
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
   full:
     name: Build bản đầy đủ (tích hợp runtime, dùng ngay ngoại tuyến)
     runs-on: windows-latest
