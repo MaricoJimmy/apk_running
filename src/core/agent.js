@@ -256,8 +256,32 @@ class WinAgent extends EventEmitter {
     return { ok: this.hooked, hooked: this.hooked };
   }
 
+  /**
+   * Bật/tắt map phím (hook bàn phím + chuột thô). Idempotent: cùng cấu hình thì không gửi lại.
+   * @param {boolean} on
+   * @param {{locked?:boolean, vks?:number[]}} opts locked = khóa chuột; vks = mã VK phải nuốt
+   */
+  async setKeymap(on, opts = {}) {
+    const want = !!on;
+    const vks = want ? (opts.vks || []).filter((v) => v > 0 && v < 256).join(',') : '';
+    const locked = want && !!opts.locked;
+    const key = `${want}|${locked}|${vks}`;
+    if (!want && !this.keymapOn) return { ok: true, hooked: false };
+    if (this.keymapKey === key) return { ok: true, hooked: want };
+    this.keymapKey = key;
+    this.keymapOn = want;
+    const r = await this.call({ cmd: 'km', on: want ? 1 : 0, locked: locked ? 1 : 0, vks }, 3000).catch(() => null);
+    if (!r) this.keymapKey = null;
+    return { ok: !!r, hooked: !!(r && r.hooked), locked: !!(r && r.locked) };
+  }
+
   dispose() {
     // Gỡ hook toàn cục trước rồi mới kết thúc tiến trình: dù tác tử bị kill cưỡng bức cũng không để lại hook trong hệ thống
+    if (this.keymapOn && this.sock) {
+      try { this.sock.write('{"cmd":"km","on":0}\n'); } catch (_) { /* ignore */ }
+    }
+    this.keymapOn = false;
+    this.keymapKey = null;
     if (this.hooked && this.sock) {
       try { this.sock.write('{"cmd":"hook","on":0}\n'); } catch (_) { /* ignore */ }
     }

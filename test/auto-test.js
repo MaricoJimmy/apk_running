@@ -1843,6 +1843,17 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
       store.saveKeymap('a.b', null);
       assert(store.getKeymap('a.b') === null, 'null = xóa');
     });
+    await test('Tác tử có hook bàn phím + khóa chuột cho map phím, vẫn giữ BOM', () => {
+      const buf = fs.readFileSync(path.join(__dirname, '..', 'src', 'core', 'win', 'agent.ps1'));
+      assert(buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf, 'agent.ps1 thiếu UTF-8 BOM');
+      const src = buf.toString('utf8');
+      assert(src.includes('SetWindowsHookEx(13'), 'Thiếu hook bàn phím WH_KEYBOARD_LL');
+      assert(src.includes('ClipCursor'), 'Thiếu khóa con trỏ');
+      assert(src.includes('kmlost'), 'Thiếu sự kiện kmlost khi mất tiền cảnh');
+      assert(src.includes('cmd == "km"'), 'Thiếu lệnh km');
+      const { WinAgent } = require('../src/core/agent');
+      assert(typeof WinAgent.prototype.setKeymap === 'function', 'Thiếu WinAgent.setKeymap');
+    });
     await test('vkToCode / codeToVk khứ hồi cho các phím mẫu', () => {
       for (const c of ['KeyW', 'Space', 'Tab', 'Escape', 'Backquote', 'F12', 'Digit1']) {
         assert(keymap.vkToCode(keymap.codeToVk(c)) === c, c);

@@ -29,6 +29,7 @@ public class ApkAgent
     [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
     [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
     [StructLayout(LayoutKind.Sequential)] public struct MSLLHOOKSTRUCT { public POINT Pt; public int MouseData; public int Flags; public int Time; public IntPtr Extra; }
+    [StructLayout(LayoutKind.Sequential)] public struct KBDLLHOOKSTRUCT { public int Vk; public int Scan; public int Flags; public int Time; public IntPtr Extra; }
     [StructLayout(LayoutKind.Sequential)] public struct MSG { public IntPtr Hwnd; public uint Message; public IntPtr WParam; public IntPtr LParam; public uint Time; public int X; public int Y; }
     // Minimal PROCESS_BASIC_INFORMATION: enough to read InheritedFromUniqueProcessId.
     [StructLayout(LayoutKind.Sequential)] public struct PBI { public IntPtr R1; public IntPtr Peb; public IntPtr R2a; public IntPtr R2b; public IntPtr Pid; public IntPtr ParentPid; }
@@ -59,6 +60,9 @@ public class ApkAgent
     [DllImport("user32.dll")] static extern IntPtr SetWindowsHookEx(int id, HookProc p, IntPtr mod, uint thread);
     [DllImport("user32.dll")] static extern bool UnhookWindowsHookEx(IntPtr h);
     [DllImport("user32.dll")] static extern IntPtr CallNextHookEx(IntPtr h, int code, IntPtr wp, IntPtr lp);
+    [DllImport("user32.dll", EntryPoint = "ClipCursor")] static extern bool ClipCursorRect(ref RECT r);
+    [DllImport("user32.dll", EntryPoint = "ClipCursor")] static extern bool ClipCursorFree(IntPtr r);
+    [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] static extern bool PeekMessage(out MSG m, IntPtr h, uint min, uint max, uint remove);
     [DllImport("user32.dll")] static extern int GetMessage(out MSG m, IntPtr h, uint min, uint max);
     [DllImport("user32.dll")] static extern bool PostThreadMessage(uint tid, uint msg, IntPtr wp, IntPtr lp);
@@ -110,6 +114,17 @@ public class ApkAgent
     static uint _hookTid = 0;
     static readonly ManualResetEvent _hookReady = new ManualResetEvent(false);
     static readonly ConcurrentQueue<string> _events = new ConcurrentQueue<string>();
+    // Map phím (lệnh km): hook bàn phím + chuột thô. Sự kiện được gửi thẳng từ luồng hook (dưới _sendLock),
+    // không xếp hàng chờ vòng Serve (Poll 50ms) — xoay camera cần độ trễ thấp.
+    static IntPtr _kbHook = IntPtr.Zero;
+    static HookProc _kbProc = null;
+    static volatile bool _kmOn = false;
+    static volatile bool _kmLocked = false;
+    static readonly bool[] _kmVks = new bool[256];
+    static readonly bool[] _kmDown = new bool[256];
+    static int _kmCx = 0, _kmCy = 0;
+    static Socket _sock = null;
+    static readonly object _sendLock = new object();
     static long _lastToolSweep = 0;
     static long _embedAt = 0;
     // Áp chế thường trực: mặc định bật ngay từ lúc khởi động, đè cửa sổ chính của trình giả lập + thanh công cụ + cửa sổ console đen.
@@ -819,6 +834,75 @@ public class ApkAgent
         lock (_wheelLock) { _wheelDx = 0; _wheelDy = 0; }
     }
 
+    static void Emit(string json)
+    {
+        lock (_sendLock)
+        {
+            if (_sock == null) return;
+            try { _sock.Send(Encoding.UTF8.GetBytes(json + "\n")); } catch { }
+        }
+    }
+
+    // Cửa sổ tiền cảnh còn là cửa sổ app của ta không (đổi focus là phải nhả chuột ngay)
+    static bool KmForeground()
+    {
+        if (_host == IntPtr.Zero || !IsWindow(_host)) return false;
+        return GetAncestor(GetForegroundWindow(), 2) == _host;   // 2 = GA_ROOT
+    }
+
+    // Khóa: kẹp con trỏ trong vùng LCD và đặt về tâm; sau đó mọi WM_MOUSEMOVE bị nuốt và đổi thành dx/dy.
+    static void KmSetLocked(bool on)
+    {
+        _kmLocked = on;
+        if (!on) { ClipCursorFree(IntPtr.Zero); return; }
+        RECT r;
+        IntPtr e = _emu;
+        if (e != IntPtr.Zero && GetWindowRect(e, out r)) { r.L += 8; r.T += 8; r.R -= 8; r.B -= 8; }
+        else if (_host != IntPtr.Zero && GetWindowRect(_host, out r)) { r.T += 40; }
+        else { _kmLocked = false; return; }
+        _kmCx = (r.L + r.R) / 2;
+        _kmCy = (r.T + r.B) / 2;
+        SetCursorPos(_kmCx, _kmCy);
+        ClipCursorRect(ref r);
+    }
+
+    static void KmLost()
+    {
+        KmSetLocked(false);
+        Array.Clear(_kmDown, 0, 256);
+        Emit("{\"ev\":\"kmlost\"}");
+    }
+
+    static IntPtr KbCallback(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode >= 0 && _kmOn)
+        {
+            KBDLLHOOKSTRUCT k = (KBDLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(KBDLLHOOKSTRUCT));
+            int vk = k.Vk & 0xFF;
+            if ((k.Flags & 0x10) == 0 && _kmVks[vk])   // 0x10 = LLKHF_INJECTED
+            {
+                if (!KmForeground())
+                {
+                    if (_kmLocked) KmLost();
+                    return CallNextHookEx(_kbHook, nCode, wParam, lParam);
+                }
+                int m = (int)wParam;
+                if (m == 0x100 || m == 0x104)   // WM_KEYDOWN / WM_SYSKEYDOWN
+                {
+                    // Giữ phím sinh lặp: chỉ báo lần đầu
+                    if (!_kmDown[vk]) { _kmDown[vk] = true; Emit("{\"ev\":\"kd\",\"vk\":" + vk + "}"); }
+                }
+                else
+                {
+                    _kmDown[vk] = false;
+                    Emit("{\"ev\":\"ku\",\"vk\":" + vk + "}");
+                }
+                return (IntPtr)1;
+            }
+        }
+        return CallNextHookEx(_kbHook, nCode, wParam, lParam);
+    }
+
     // The callback must stay microscopic: Windows synchronously waits for it on
     // EVERY mouse event of EVERY process. Anything not one of our 7 messages
     // (including all left-button events) is a single CallNextHookEx.
@@ -827,6 +911,23 @@ public class ApkAgent
         if (nCode >= 0)
         {
             int msg = (int)wParam;
+            // Map phím đang khóa chuột: di chuyển -> dx/dy (xoay camera), nút trái/phải -> mb; tất cả bị nuốt
+            if (_kmOn && _kmLocked)
+            {
+                if (!KmForeground()) { KmLost(); return CallNextHookEx(_hook, nCode, wParam, lParam); }
+                MSLLHOOKSTRUCT km = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
+                if ((km.Flags & 1) == 0)   // 1 = LLMHF_INJECTED
+                {
+                    if (msg == 0x200)   // WM_MOUSEMOVE
+                    {
+                        int dx = km.Pt.X - _kmCx, dy = km.Pt.Y - _kmCy;
+                        if (dx != 0 || dy != 0) Emit("{\"ev\":\"mm\",\"dx\":" + dx + ",\"dy\":" + dy + "}");
+                        return (IntPtr)1;
+                    }
+                    if (msg == 0x201 || msg == 0x202) { Emit("{\"ev\":\"mb\",\"b\":1,\"d\":" + (msg == 0x201 ? 1 : 0) + "}"); return (IntPtr)1; }
+                    if (msg == 0x204 || msg == 0x205) { Emit("{\"ev\":\"mb\",\"b\":2,\"d\":" + (msg == 0x204 ? 1 : 0) + "}"); return (IntPtr)1; }
+                }
+            }
             bool right = msg == WM_RBUTTONDOWN || msg == WM_RBUTTONUP || msg == WM_RBUTTONDBLCLK;
             bool wheel = msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL;
             bool xbut = msg == WM_XBUTTONDOWN || msg == WM_XBUTTONUP;
@@ -872,6 +973,9 @@ public class ApkAgent
         _hookTid = GetCurrentThreadId();
         _hookProc = HookCallback;
         _hook = SetWindowsHookEx(14, _hookProc, IntPtr.Zero, 0);
+        // Hook bàn phím cài cùng luồng; callback trả ngay khi map phím tắt (_kmOn = false)
+        _kbProc = KbCallback;
+        _kbHook = SetWindowsHookEx(13, _kbProc, IntPtr.Zero, 0);
         _hookReady.Set();
         MSG m;
         while (_hookRun && GetMessage(out m, IntPtr.Zero, 0, 0) > 0)
@@ -880,6 +984,7 @@ public class ApkAgent
             DispatchMessage(ref m);
         }
         if (_hook != IntPtr.Zero) { UnhookWindowsHookEx(_hook); _hook = IntPtr.Zero; }
+        if (_kbHook != IntPtr.Zero) { UnhookWindowsHookEx(_kbHook); _kbHook = IntPtr.Zero; }
         _hookTid = 0;
     }
 
@@ -899,6 +1004,9 @@ public class ApkAgent
     {
         _hookRun = false;
         _optRight = 0; _optWheel = 0; _optSide = 0;
+        _kmOn = false;
+        KmSetLocked(false);
+        Array.Clear(_kmDown, 0, 256);
         ResetWheel();
         if (_hook != IntPtr.Zero) { UnhookWindowsHookEx(_hook); _hook = IntPtr.Zero; }
         if (_hookTid != 0) PostThreadMessage(_hookTid, 0x0012, IntPtr.Zero, IntPtr.Zero); // WM_QUIT
@@ -945,12 +1053,15 @@ public class ApkAgent
 
     static void Reply(Socket s, string json)
     {
-        try
+        lock (_sendLock)
         {
-            byte[] b = Encoding.UTF8.GetBytes(json + "\n");
-            s.Send(b);
+            try
+            {
+                byte[] b = Encoding.UTF8.GetBytes(json + "\n");
+                s.Send(b);
+            }
+            catch { }
         }
-        catch { }
     }
 
     public static void Serve(int port)
@@ -964,6 +1075,9 @@ public class ApkAgent
         try { sock = l.AcceptSocket(); }
         catch { return; }
         l.Stop();
+        lock (_sendLock) { _sock = sock; }
+        // Tiến trình tác tử thoát kiểu gì cũng phải trả con trỏ tự do
+        AppDomain.CurrentDomain.ProcessExit += (o, a) => ClipCursorFree(IntPtr.Zero);
 
         StringBuilder rx = new StringBuilder();
         byte[] buf = new byte[8192];
@@ -1025,6 +1139,7 @@ public class ApkAgent
                 {
                     try { sock.Close(); } catch { }
                     sock = null;
+                    lock (_sendLock) { _sock = null; }
                     if (_quiet) { _lingerUntil = Environment.TickCount + 180000; continue; }
                     break;
                 }
@@ -1121,6 +1236,30 @@ public class ApkAgent
                         if (L(line, "on") == 1) HookOn(); else HookOff();
                         Reply(sock, "{\"ok\":true,\"hooked\":" + (_hook != IntPtr.Zero ? "true" : "false") + "}");
                     }
+                    else if (cmd == "km")
+                    {
+                        // Map phím: vks = danh sách VK phải nuốt (phía JS tính theo trạng thái); locked = khóa chuột
+                        Array.Clear(_kmVks, 0, 256);
+                        foreach (string part in S(line, "vks").Split(','))
+                        {
+                            int v;
+                            if (int.TryParse(part, out v) && v > 0 && v < 256) _kmVks[v] = true;
+                        }
+                        if (L(line, "on") == 1)
+                        {
+                            _kmOn = true;
+                            HookOn();
+                            KmSetLocked(L(line, "locked") == 1 && KmForeground());
+                        }
+                        else
+                        {
+                            _kmOn = false;
+                            KmSetLocked(false);
+                            Array.Clear(_kmDown, 0, 256);
+                            if (_optRight == 0 && _optWheel == 0 && _optSide == 0) HookOff();
+                        }
+                        Reply(sock, "{\"ok\":true,\"hooked\":" + (_hook != IntPtr.Zero ? "true" : "false") + ",\"locked\":" + (_kmLocked ? "true" : "false") + "}");
+                    }
                     else if (cmd == "probe")
                     {
                         IntPtr e = FindEmulator();
@@ -1181,6 +1320,7 @@ public class ApkAgent
             {
                 try { sock.Close(); } catch { }
                 sock = null;
+                lock (_sendLock) { _sock = null; }
                 if (_quiet) { _lingerUntil = Environment.TickCount + 180000; continue; }
                 break;
             }
