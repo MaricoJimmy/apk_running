@@ -34,6 +34,7 @@ const { WinAgent } = require('./core/agent');
 const pointer = require('./core/pointer');
 const { AppWindow, TITLEBAR_H } = require('./core/appwin');
 const { KeymapSession } = require('./core/keymap-session');
+const { TouchChannel } = require('./core/touch');
 const { NotifyBridge } = require('./core/notify');
 const { AndroidSettings } = require('./core/android');
 const { Updater } = require('./core/updater');
@@ -1741,7 +1742,15 @@ if (!gotLock) {
     winAgent = new WinAgent();
     keymapSession = new KeymapSession({
       agent: winAgent,
-      touch: () => keymapTouch,
+      // Kênh chạm tạo lười theo cổng gRPC hiện tại; emulator khởi động lại cùng cổng thì grpc tự nối lại
+      touch: () => {
+        const port = (runtime.emulator && runtime.emulator.grpcPort) || 8554;
+        if (!keymapTouch || keymapTouch.port !== port) {
+          if (keymapTouch) keymapTouch.close();
+          try { keymapTouch = new TouchChannel({ port }); } catch (e) { appLog(`touch channel: ${e.message}`); keymapTouch = null; }
+        }
+        return keymapTouch;
+      },
       store,
       screen: async () => {
         const d = await getDeviceSize();
