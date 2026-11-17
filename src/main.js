@@ -1744,7 +1744,7 @@ if (!gotLock) {
       agent: winAgent,
       // Kênh chạm tạo lười theo cổng gRPC hiện tại; emulator khởi động lại cùng cổng thì grpc tự nối lại
       touch: () => {
-        const port = (runtime.emulator && runtime.emulator.grpcPort) || 8554;
+        const port = ((runtime.emulator && runtime.emulator.port) || 5554) + 3000;
         if (!keymapTouch || keymapTouch.port !== port) {
           if (keymapTouch) keymapTouch.close();
           try { keymapTouch = new TouchChannel({ port }); } catch (e) { appLog(`touch channel: ${e.message}`); keymapTouch = null; }

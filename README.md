@@ -80,6 +80,25 @@ Cả hai kho đều công khai, danh sách phát hành trên Gitee đọc ẩn d
 - Sau khi cài sẽ tự cấp các quyền runtime mà ứng dụng yêu cầu, không bị kẹt ở hộp thoại cấp quyền của hệ thống; ứng dụng bị crash sẽ tự thử lại, khi cần sẽ reset dữ liệu ứng dụng rồi khởi động lại.
 - **Mạng dùng thẳng mạng của máy chủ**: phía Android đi qua NAT chế độ người dùng của QEMU, lưu lượng ra ngoài tái sử dụng card mạng vật lý của máy, **không tạo bất kỳ card mạng ảo / switch ảo nào trên Windows** (không cần cài driver, cũng không thêm network adapter). Không cần tải gì qua mạng, không cần đổi bất kỳ thiết lập mạng nào.
 
+### Map phím cho game (bàn phím + chuột)
+
+Chơi game 3D bằng bàn phím và chuột như trên PC, bố cục mẫu lấy theo PUBG Mobile:
+
+1. Mở game, bấm **nút hình bàn phím** trên thanh tiêu đề cửa sổ → game mờ đi, hiện trình chỉnh.
+2. Lần đầu sẽ có sẵn **bố cục mẫu** (joystick WASD góc dưới trái, vùng xoay camera nửa phải, Space nhảy, C ngồi, Z nằm, R nạp đạn, F nhặt, Tab túi đồ, M bản đồ, 1/2 đổi súng, chuột trái bắn, chuột phải ngắm). **Kéo từng ô cho khớp nút trong game**, chọn ô rồi nhấn phím để đổi phím, chuột phải để xóa, lăn chuột trên joystick để đổi cỡ.
+3. Bấm **Lưu**. Mỗi game lưu một bộ phím riêng, tự nạp khi mở lại.
+
+Khi chơi:
+
+| Phím | Tác dụng |
+|---|---|
+| `` ` `` (dấu huyền) | Khóa / nhả chuột. Khi khóa: di chuột = xoay camera, chuột trái/phải = nút đã gán |
+| `Esc` | Mở menu game (nút Quay lại Android) và nhả chuột; bấm lần nữa để đóng menu và khóa lại |
+| `Tab` (hoặc phím có tick "Nhả chuột khi bật") | Mở túi đồ và nhả chuột để loot; bấm lần nữa để khóa lại |
+| `F12` (đổi được) | Tắt / bật toàn bộ map phím (để gõ chat) |
+
+Khi đang nhả chuột, click là chạm bình thường, WASD vẫn chạy. Alt+Tab / chuyển cửa sổ luôn nhả chuột ngay. Bộ phím làm cho màn ngang sẽ tạm tắt khi game đang ở màn dọc. Lưu ý: nhiều game online có chống gian lận / phát hiện giả lập — map phím không vượt qua được việc đó.
+
 ## Build từ mã nguồn
 
 ```powershell
