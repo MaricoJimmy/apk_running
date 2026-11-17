@@ -1890,7 +1890,8 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
       assert(shellHtml.includes('id="btnKeymap"'));
       const pre = fs.readFileSync(path.join(__dirname, '..', 'src', 'preload.js'), 'utf8');
       assert(pre.includes('keymapEdit') && pre.includes("keymap:save"));
-      assert(typeof require('../src/core/overlay').KeymapOverlay === 'function');
+      // Không require: overlay.js cần electron, CI không tải electron
+      assert(/class KeymapOverlay/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'core', 'overlay.js'), 'utf8')));
     });
 
     const { EventEmitter } = require('events');
