@@ -1,7 +1,7 @@
 {
   "name": "apkstart",
   "productName": "ApkStart",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "Trình chạy ứng dụng Android trên Windows siêu nhẹ: nhấp đúp vào APK là cài, ứng dụng chạy trong cửa sổ riêng với biểu tượng trên desktop",
   "main": "src/main.js",
   "author": "RoutineMiku",
